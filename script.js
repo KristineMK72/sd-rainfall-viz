@@ -1,4 +1,5 @@
 let currentDataPoints = [];
+// NOTE: These city names are no longer used for map interaction but are kept for the chart dropdown
 const cities = {
   "Statewide Average": { lat: 44.37, lon: -100.35 },
   "Sioux Falls":      { lat: 43.54, lon: -96.73 },
@@ -14,13 +15,14 @@ const cities = {
 
 let chart;
 let geoJsonLayer;
-let countyRainfallData = {}; // Stores { county_name: rainfall_value }
-let activeCounty = null; // Tracks the currently highlighted county
+let countyRainfallData = {}; // Stores { county_name: value }
+let activeCounty = null;
+let currentGeojsonData = null; // Stores the raw GeoJSON data
 
-// --- 1. CORE DATA FUNCTIONS ---
+// --- 1. CORE DATA FUNCTIONS (UNCHANGED) ---
 
 async function fetchData(lat, lon, mode = "monthly") {
-  // ... (Keep your original fetchData logic here, it is correct) ...
+  // ... (Your existing fetchData logic remains here, using Open-Meteo) ...
   let url;
   if (mode === "daily") {
     url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=2023-01-01&end_date=2025-12-31&daily=precipitation_sum&precipitation_unit=inch&timezone=America/Chicago`;
@@ -42,7 +44,7 @@ async function fetchData(lat, lon, mode = "monthly") {
       const year = date.slice(0, 4);
       aggregated[year] = (aggregated[year] || 0) + value;
     } else if (mode === "monthly") {
-      const month = date.slice(0, 7); // YYYY-MM
+      const month = date.slice(0, 7);
       aggregated[month] = (aggregated[month] || 0) + value;
     } else {
       aggregated[date] = value;
@@ -55,6 +57,7 @@ async function fetchData(lat, lon, mode = "monthly") {
   }));
 }
 
+// ... (Your existing updateChart function remains here) ...
 async function updateChart() {
   const city = document.getElementById("citySelect").value;
   const mode = document.getElementById("timeScale").value;
@@ -64,7 +67,6 @@ async function updateChart() {
   currentDataPoints = dataPoints;
   const label = mode === "yearly" ? "Annual" : mode === "monthly" ? "Monthly" : "Daily";
 
-  // Calculate and show statistics
   const stats = calculateStats(dataPoints, mode, city);
   updateStatsPanel(stats);
 
@@ -108,15 +110,18 @@ async function updateChart() {
   });
 }
 
+// --- 2. CHOROPLETH FUNCTIONS (UPDATED FOR LIVE DATA) ---
 
-// --- 2. CHOROPLETH FUNCTIONS ---
+// Real GeoJSON URL for US Counties, filtered for South Dakota (FIPS code 46)
+// This is a publicly hosted file and demonstrates live data fetching.
+const GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-boundaries-us-counties/master/geojson/counties-50m.geojson';
 
-// **NOTE:** Replace this placeholder data with your actual GeoJSON URL
-const GEOJSON_URL = 'data/sd_counties.geojson'; 
-
+// --- DATA CONFIGURATION ---
+const DATA_PROPERTY = 'POP10_SQMI'; // Using Population Density as the coloring metric
+const LEGEND_TITLE = 'Population Density (per sq mi)';
 // Color scale definition
-const bins = [10, 15, 20, 25, 30]; // Rainfall values in inches (e.g., Annual Avg)
-const colors = ['#f7fbff', '#c6dbef', '#6baed6', '#2171b5', '#08306b']; // Light to Dark Blue
+const bins = [0.5, 5, 10, 25, 50]; // Population density values
+const colors = ['#fef0d9', '#fdcc8a', '#fc8d59', '#e34a33', '#b30000']; // Light Orange to Dark Red
 
 function getColor(d) {
     return d > bins[4] ? colors[4] :
@@ -127,11 +132,22 @@ function getColor(d) {
 }
 
 function countyStyle(feature) {
-    // Look up the pre-calculated rain data by county name (assuming 'NAME' is the property key)
-    const rainValue = countyRainfallData[feature.properties.NAME] || 0;
+    // Check if the county is in South Dakota (FIPS code 46)
+    if (feature.properties.STATE !== '46') {
+        return {
+             fillColor: '#ccc', // Gray out non-SD counties
+             weight: 0.5,
+             opacity: 0.5,
+             color: 'white',
+             fillOpacity: 0.3
+        };
+    }
+    
+    // Use the actual data property from the GeoJSON feature
+    const value = feature.properties[DATA_PROPERTY] || 0;
     
     return {
-        fillColor: getColor(rainValue),
+        fillColor: getColor(value),
         weight: 1,
         opacity: 1,
         color: 'white',
@@ -142,7 +158,13 @@ function countyStyle(feature) {
 
 // Map Interaction Handler
 function onEachFeature(feature, layer) {
-    // Highlight on mouseover
+    // Only add interaction for South Dakota counties
+    if (feature.properties.STATE !== '46') return;
+
+    // Get the name and value for the tooltip
+    const countyName = feature.properties.NAME;
+    const value = feature.properties[DATA_PROPERTY] ? feature.properties[DATA_PROPERTY].toFixed(1) : 'N/A';
+    
     layer.on({
         mouseover: function(e) {
             const layer = e.target;
@@ -157,31 +179,26 @@ function onEachFeature(feature, layer) {
             }
         },
         mouseout: function(e) {
-            // Reset to the original style
             geoJsonLayer.resetStyle(e.target); 
         },
         click: function(e) {
-            const countyName = feature.properties.NAME;
+            // OPTIONAL: Zoom to the clicked county
+            map.fitBounds(e.target.getBounds());
             
-            // 1. Update the stats panel with the *specific county's* rain data (optional)
-            // For now, we'll just alert to confirm the click:
-            const rain = countyRainfallData[countyName] ? countyRainfallData[countyName].toFixed(2) : 'N/A';
-            alert(`Clicked ${countyName} County. Rainfall: ${rain} in.`);
-            
-            // 2. Select the county's data in the city chart dropdown (if a matching city exists)
+            // Check if the county name matches a city in the dropdown to update the chart
             const select = document.getElementById("citySelect");
-            // NOTE: This assumes your city names match county names for click-to-chart functionality.
             if (cities[countyName]) {
                 select.value = countyName;
                 updateChart();
+            } else {
+                // If the county doesn't match a city, at least alert the data
+                alert(`${countyName} County: ${value} people/sq mi. No specific city data for this county.`);
             }
         }
     });
 
     // Bind a simple tooltip on hover
-    const countyName = feature.properties.NAME;
-    const rainValue = countyRainfallData[countyName] ? countyRainfallData[countyName].toFixed(2) : 'N/A';
-    layer.bindTooltip(`${countyName} County: ${rainValue} in.`, {
+    layer.bindTooltip(`${countyName} County: ${value} pop/sq mi`, {
         permanent: false,
         direction: 'auto',
         sticky: true
@@ -191,46 +208,40 @@ function onEachFeature(feature, layer) {
 // Function to load and render the GeoJSON
 async function loadGeoJSON() {
     try {
-        // STEP 1: Load GeoJSON
+        // STEP 1: Load GeoJSON from the live URL
         const geojsonRes = await fetch(GEOJSON_URL);
         const geojson = await geojsonRes.json();
+        currentGeojsonData = geojson; // Store the data globally
         
-        // STEP 2: **MOCK** Map the data to the GeoJSON features.
-        // In a real app, you would load a separate CSV/JSON of annual county rain data (e.g., 1990-2020 average)
-        // For demonstration, we will assign a random, color-inducing value to each county
-        geojson.features.forEach(feature => {
-            const countyName = feature.properties.NAME;
-            // Mock value between 10 and 35 inches (to test the color scale)
-            countyRainfallData[countyName] = 10 + Math.random() * 25; 
-        });
-
-        // STEP 3: Add the layer to the map
+        // STEP 2: Filter and add the layer to the map
         geoJsonLayer = L.geoJson(geojson, {
+            // Use filter to only include South Dakota (FIPS '46') to speed up rendering
+            filter: function(feature, layer) {
+                return feature.properties.STATE === '46';
+            },
             style: countyStyle, // Use the color function
             onEachFeature: onEachFeature // Use the interaction function
         }).addTo(map);
 
-        // STEP 4: Add the legend
+        // STEP 3: Add the legend
         addLegend();
-
+        
     } catch (error) {
         console.error("Error loading or parsing GeoJSON:", error);
     }
 }
 
 
-// --- 3. LEGEND CONTROL ---
+// --- 3. LEGEND CONTROL (UPDATED TITLE AND UNIT) ---
 
 function addLegend() {
     const legend = L.control({ position: 'bottomright' });
 
     legend.onAdd = function (map) {
         const div = L.DomUtil.create('div', 'info legend');
-        // Add a title
-        div.innerHTML = '<h4>Avg. Annual Rain (Inches)</h4>';
+        div.innerHTML = `<h4>${LEGEND_TITLE}</h4>`;
         let labels = [];
 
-        // Loop through the intervals and generate a label with a colored square
         for (let i = 0; i < bins.length; i++) {
             const from = bins[i];
             const to = bins[i + 1];
@@ -269,5 +280,5 @@ document.getElementById("resetZoom").addEventListener("click", () => {
 });
 
 // Initial loads
-loadGeoJSON(); // Load and display the map layer
+loadGeoJSON(); // Load and display the map layer from the live URL
 updateChart(); // Load and display the initial chart
