@@ -1,6 +1,8 @@
-// ---------- CONFIG ----------
+// ======================================================
+// CONFIG
+// ======================================================
 
-// Cities for dropdown (used to fetch rainfall and move map)
+// Cities for dropdown
 const cities = {
   "Statewide Average": { lat: 44.37, lon: -100.35 },
   "Sioux Falls": { lat: 43.54, lon: -96.73 },
@@ -14,7 +16,7 @@ const cities = {
   "Yankton": { lat: 42.87, lon: -97.39 }
 };
 
-// A few approximate county centroids for SD (for choropleth interaction)
+// Approximate county centroids (expand later)
 const countyCentroids = {
   "Minnehaha": { lat: 43.67, lon: -96.79 },
   "Pennington": { lat: 44.00, lon: -103.45 },
@@ -23,79 +25,312 @@ const countyCentroids = {
   "Lincoln": { lat: 43.25, lon: -96.70 },
   "Codington": { lat: 44.97, lon: -97.18 },
   "Brookings": { lat: 44.31, lon: -96.80 }
-  // You can expand this over time for more counties
 };
 
-let chart = null;
-let map = null;
-let geoJsonLayer = null;
-
-// Choropleth config
+// GeoJSON source
 const GEOJSON_URL =
   "https://raw.githubusercontent.com/datasets/geo-boundaries-us-counties/master/geojson/counties-50m.geojson";
 
-const bins = [10, 15, 20, 25, 30]; // inches/year
-const colors = ["#edf8fb", "#b3cde3", "#8c96c6", "#8856a7", "#810f7c"];
+// Choropleth metric state
+let currentMetric = "amount";
 
-// ---------- HELPERS ----------
+// Cache for county rainfall metrics
+const countyDataCache = {};
 
-function getColor(d) {
-  return d > bins[4]
-    ? colors[4]
-    : d > bins[3]
-    ? colors[3]
-    : d > bins[2]
-    ? colors[2]
-    : d > bins[1]
-    ? colors[1]
-    : colors[0];
-}
+// Map + chart references
+let map = null;
+let geoJsonLayer = null;
+let chart = null;
 
-// Fetch and aggregate rainfall for a given lat/lon and mode
-async function fetchData(lat, lon, mode = "monthly") {
-  let url;
-  if (mode === "daily") {
-    url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=2023-01-01&end_date=2025-12-31&daily=precipitation_sum&precipitation_unit=inch&timezone=America/Chicago`;
-  } else {
-    url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=1940-01-01&end_date=2025-12-31&daily=precipitation_sum&precipitation_unit=inch&timezone=America/Chicago`;
-  }
+// ======================================================
+// FETCH RAINFALL DATA
+// ======================================================
+
+async function fetchDaily(lat, lon) {
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=1940-01-01&end_date=2025-12-31&daily=precipitation_sum&precipitation_unit=inch&timezone=America/Chicago`;
 
   const res = await fetch(url);
   const json = await res.json();
 
-  if (!json || !json.daily || !json.daily.time || !json.daily.precipitation_sum) {
-    return [];
-  }
+  if (!json.daily) return [];
 
-  const dates = json.daily.time;
-  const precip = json.daily.precipitation_sum;
-
-  const aggregated = {};
-
-  dates.forEach((date, i) => {
-    const value = precip[i] || 0;
-    if (mode === "yearly") {
-      const year = date.slice(0, 4);
-      aggregated[year] = (aggregated[year] || 0) + value;
-    } else if (mode === "monthly") {
-      const month = date.slice(0, 7);
-      aggregated[month] = (aggregated[month] || 0) + value;
-    } else {
-      aggregated[date] = value;
-    }
-  });
-
-  return Object.keys(aggregated).map(key => ({
-    x: key,
-    y: Number(aggregated[key].toFixed(2))
+  return json.daily.time.map((date, i) => ({
+    date,
+    value: json.daily.precipitation_sum[i] || 0
   }));
 }
 
-// ---------- CHART + STATS ----------
+function aggregateYearly(daily) {
+  const yearly = {};
+  daily.forEach(d => {
+    const year = d.date.slice(0, 4);
+    yearly[year] = (yearly[year] || 0) + d.value;
+  });
+  return Object.entries(yearly).map(([year, val]) => ({
+    year,
+    value: Number(val.toFixed(2))
+  }));
+}
+
+// ======================================================
+// METRIC CALCULATIONS
+// ======================================================
+
+// 1. Amount = 10-year average
+function calcAmount(yearly) {
+  const last10 = yearly.slice(-10).map(d => d.value);
+  if (!last10.length) return null;
+  return last10.reduce((a, b) => a + b, 0) / last10.length;
+}
+
+// 2. Trend = % change (last 20 vs previous 20)
+function calcTrend(yearly) {
+  if (yearly.length < 40) return null;
+
+  const last20 = yearly.slice(-20).map(d => d.value);
+  const prev20 = yearly.slice(-40, -20).map(d => d.value);
+
+  const avgLast = last20.reduce((a, b) => a + b, 0) / 20;
+  const avgPrev = prev20.reduce((a, b) => a + b, 0) / 20;
+
+  return ((avgLast - avgPrev) / avgPrev) * 100;
+}
+
+// 3. Variability = standard deviation
+function calcVariability(yearly) {
+  const vals = yearly.map(d => d.value);
+  if (!vals.length) return null;
+
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const variance =
+    vals.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / vals.length;
+
+  return Math.sqrt(variance);
+}
+
+// ======================================================
+// COLOR SCALES
+// ======================================================
+
+// Amount (blue)
+function colorAmount(v) {
+  if (v == null) return "#e5e7eb";
+  if (v > 25) return "#08306b";
+  if (v > 20) return "#2171b5";
+  if (v > 15) return "#6baed6";
+  if (v > 10) return "#bdd7e7";
+  return "#eff3ff";
+}
+
+// Trend (red → blue)
+function colorTrend(v) {
+  if (v == null) return "#e5e7eb";
+  if (v > 20) return "#08306b";
+  if (v > 10) return "#2171b5";
+  if (v > 0) return "#6baed6";
+  if (v > -10) return "#fcae91";
+  if (v > -20) return "#fb6a4a";
+  return "#cb181d";
+}
+
+// Variability (yellow → purple)
+function colorVariability(v) {
+  if (v == null) return "#e5e7eb";
+  if (v > 6) return "#4d004b";
+  if (v > 5) return "#810f7c";
+  if (v > 4) return "#8c6bb1";
+  if (v > 3) return "#9ebcda";
+  if (v > 2) return "#e7e1ef";
+  return "#ffffcc";
+}
+
+function getColor(metric, v) {
+  if (metric === "amount") return colorAmount(v);
+  if (metric === "trend") return colorTrend(v);
+  return colorVariability(v);
+}
+
+// ======================================================
+// COUNTY DATA LOADING
+// ======================================================
+
+async function loadCountyData(countyName) {
+  if (countyDataCache[countyName]) return countyDataCache[countyName];
+
+  const centroid = countyCentroids[countyName];
+  if (!centroid) return null;
+
+  const daily = await fetchDaily(centroid.lat, centroid.lon);
+  const yearly = aggregateYearly(daily);
+
+  const amount = calcAmount(yearly);
+  const trend = calcTrend(yearly);
+  const variability = calcVariability(yearly);
+
+  countyDataCache[countyName] = { amount, trend, variability, yearly };
+  return countyDataCache[countyName];
+}
+
+// ======================================================
+// MAP + CHOROPLETH
+// ======================================================
+
+function styleCounty(feature) {
+  const name = feature.properties.NAME;
+  const data = countyDataCache[name];
+  const v = data ? data[currentMetric] : null;
+
+  return {
+    fillColor: getColor(currentMetric, v),
+    weight: 1,
+    opacity: 1,
+    color: "white",
+    dashArray: "2",
+    fillOpacity: 0.8
+  };
+}
+
+function onEachCounty(feature, layer) {
+  const name = feature.properties.NAME;
+
+  layer.on({
+    mouseover: e => {
+      const target = e.target;
+      target.setStyle({
+        weight: 3,
+        color: "#111827",
+        dashArray: "",
+        fillOpacity: 0.9
+      });
+      target.bringToFront();
+    },
+    mouseout: e => {
+      geoJsonLayer.resetStyle(e.target);
+    },
+    click: async () => {
+      const data = await loadCountyData(name);
+      if (!data) return;
+
+      const centroid = countyCentroids[name];
+      if (centroid) {
+        map.fitBounds(layer.getBounds(), { maxZoom: 9 });
+        updateChartFromCoords(
+          centroid.lat,
+          centroid.lon,
+          `${name} County rainfall`
+        );
+      }
+    }
+  });
+
+  layer.bindTooltip(
+    () => {
+      const data = countyDataCache[name];
+      if (!data) return `${name} County<br>Loading…`;
+
+      const v = data[currentMetric];
+      const label =
+        currentMetric === "amount"
+          ? `${v.toFixed(1)} in/yr`
+          : currentMetric === "trend"
+          ? `${v.toFixed(1)}%`
+          : `${v.toFixed(2)} std dev`;
+
+      return `${name} County<br>${label}`;
+    },
+    { sticky: true }
+  );
+}
+
+async function buildChoropleth() {
+  const res = await fetch(GEOJSON_URL);
+  const geojson = await res.json();
+
+  // Preload county data
+  const names = Object.keys(countyCentroids);
+  await Promise.all(names.map(n => loadCountyData(n)));
+
+  geoJsonLayer = L.geoJson(geojson, {
+    filter: f => f.properties.STATE === "46",
+    style: styleCounty,
+    onEachFeature: onEachCounty
+  }).addTo(map);
+
+  updateLegend();
+}
+
+// ======================================================
+// LEGEND
+// ======================================================
+
+function updateLegend() {
+  if (map._legendControl) map.removeControl(map._legendControl);
+
+  const legend = L.control({ position: "bottomright" });
+
+  legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = `<h4>${
+      currentMetric === "amount"
+        ? "Avg annual rainfall"
+        : currentMetric === "trend"
+        ? "20-year trend"
+        : "Variability"
+    }</h4>`;
+
+    const ranges =
+      currentMetric === "amount"
+        ? [0, 10, 15, 20, 25]
+        : currentMetric === "trend"
+        ? [-20, -10, 0, 10, 20]
+        : [0, 2, 3, 4, 5, 6];
+
+    for (let i = 0; i < ranges.length; i++) {
+      const from = ranges[i];
+      const to = ranges[i + 1];
+      const color = getColor(currentMetric, from + 0.1);
+
+      div.innerHTML +=
+        `<i style="background:${color}"></i> ` +
+        from +
+        (to ? "–" + to : "+") +
+        "<br>";
+    }
+
+    return div;
+  };
+
+  legend.addTo(map);
+  map._legendControl = legend;
+}
+
+// ======================================================
+// CHART + STATS
+// ======================================================
 
 async function updateChartFromCoords(lat, lon, labelOverride) {
   const mode = document.getElementById("timeScale").value;
-  const dataPoints = await fetchData(lat, lon, mode);
+
+  const daily = await fetchDaily(lat, lon);
+  const yearly = aggregateYearly(daily);
+
+  let dataPoints = [];
+
+  if (mode === "yearly") {
+    dataPoints = yearly.map(d => ({ x: d.year, y: d.value }));
+  } else if (mode === "monthly") {
+    const monthly = {};
+    daily.forEach(d => {
+      const m = d.date.slice(0, 7);
+      monthly[m] = (monthly[m] || 0) + d.value;
+    });
+    dataPoints = Object.entries(monthly).map(([m, v]) => ({
+      x: m,
+      y: Number(v.toFixed(2))
+    }));
+  } else {
+    dataPoints = daily.map(d => ({ x: d.date, y: d.value }));
+  }
 
   const label =
     labelOverride ||
@@ -149,16 +384,12 @@ async function updateChartFromCoords(lat, lon, labelOverride) {
         x: {
           type: mode === "daily" ? "time" : "category",
           time: {
-            unit: mode === "daily" ? "month" : mode === "monthly" ? "year" : "year"
-          },
-          title: {
-            display: true,
-            text:
+            unit:
               mode === "daily"
-                ? "Date"
+                ? "month"
                 : mode === "monthly"
-                ? "Year–Month"
-                : "Year"
+                ? "year"
+                : "year"
           }
         },
         y: {
@@ -170,164 +401,36 @@ async function updateChartFromCoords(lat, lon, labelOverride) {
   });
 }
 
-// Update chart when dropdown or time scale changes
-async function updateChartFromCity() {
-  const city = document.getElementById("citySelect").value;
-  const { lat, lon } = cities[city];
-  await updateChartFromCoords(lat, lon, `${city} rainfall`);
-}
+// ======================================================
+// UI CONTROLS
+// ======================================================
 
-// ---------- CHOROPLETH MAP ----------
+function setupMetricToggle() {
+  const buttons = document.querySelectorAll(".metric-option");
+  const bg = document.querySelector(".metric-bg");
 
-// Simple cache of county rainfall (annual total for a recent year range)
-const countyRainfallCache = {};
+  buttons.forEach((btn, i) => {
+    btn.addEventListener("click", () => {
+      buttons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
 
-async function estimateCountyRainfall(countyName) {
-  if (countyRainfallCache[countyName]) {
-    return countyRainfallCache[countyName];
-  }
+      currentMetric = btn.dataset.metric;
 
-  const centroid = countyCentroids[countyName];
-  if (!centroid) return null;
+      // Move highlight bar
+      bg.style.transform = `translateX(${i * 100}%)`;
 
-  // Pull a single recent-year series and average
-  const points = await fetchData(centroid.lat, centroid.lon, "yearly");
-  if (!points.length) return null;
+      // Recolor map
+      geoJsonLayer.setStyle(styleCounty);
 
-  const values = points.slice(-10).map(d => d.y);
-  const avg =
-    values.reduce((a, b) => a + b, 0) / (values.length || 1);
-
-  countyRainfallCache[countyName] = avg;
-  return avg;
-}
-
-function styleCounty(feature) {
-  // Only SD (STATE FIPS '46')
-  if (feature.properties.STATE !== "46") {
-    return {
-      fillColor: "#cccccc",
-      weight: 0.5,
-      opacity: 0.7,
-      color: "white",
-      fillOpacity: 0.2
-    };
-  }
-
-  const name = feature.properties.NAME;
-  const value = countyRainfallCache[name];
-
-  const fillColor = value ? getColor(value) : "#e5e7eb";
-
-  return {
-    fillColor,
-    weight: 1,
-    opacity: 1,
-    color: "white",
-    dashArray: "2",
-    fillOpacity: 0.8
-  };
-}
-
-function onEachCounty(feature, layer) {
-  if (feature.properties.STATE !== "46") return;
-
-  const countyName = feature.properties.NAME;
-
-  layer.on({
-    mouseover: e => {
-      const target = e.target;
-      target.setStyle({
-        weight: 3,
-        color: "#111827",
-        dashArray: "",
-        fillOpacity: 0.9
-      });
-      if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-        target.bringToFront();
-      }
-    },
-    mouseout: e => {
-      geoJsonLayer.resetStyle(e.target);
-    },
-    click: async e => {
-      const centroid = countyCentroids[countyName];
-      if (centroid) {
-        map.fitBounds(e.target.getBounds(), { maxZoom: 9 });
-
-        await updateChartFromCoords(
-          centroid.lat,
-          centroid.lon,
-          `${countyName} County rainfall`
-        );
-      } else {
-        alert(
-          `${countyName} County: rainfall data uses approximate statewide or nearby station (centroid not defined in this demo).`
-        );
-      }
-    }
-  });
-
-  const value = countyRainfallCache[countyName];
-  const label = value
-    ? `${countyName} County<br>${value.toFixed(1)} in/yr (approx)`
-    : `${countyName} County<br>Loading…`;
-
-  layer.bindTooltip(label, {
-    permanent: false,
-    direction: "auto",
-    sticky: true
+      // Update legend
+      updateLegend();
+    });
   });
 }
 
-function addLegend() {
-  const legend = L.control({ position: "bottomright" });
-
-  legend.onAdd = function () {
-    const div = L.DomUtil.create("div", "info legend");
-    div.innerHTML = "<h4>Avg annual rainfall</h4>";
-    const labels = [];
-
-    for (let i = 0; i < bins.length; i++) {
-      const from = bins[i];
-      const to = bins[i + 1];
-
-      labels.push(
-        `<i style="background:${getColor(from + 0.1)}"></i> ${from}${
-          to ? "–" + to : "+ "
-        } in`
-      );
-    }
-
-    div.innerHTML += labels.join("<br>");
-    return div;
-  };
-
-  legend.addTo(map);
-}
-
-async function buildChoropleth() {
-  // Precompute rainfall for counties we know centroids for
-  const countyNames = Object.keys(countyCentroids);
-  await Promise.all(
-    countyNames.map(async name => {
-      await estimateCountyRainfall(name);
-    })
-  );
-
-  const res = await fetch(GEOJSON_URL);
-  const geojson = await res.json();
-
-  geoJsonLayer = L.geoJson(geojson, {
-    filter: feature => feature.properties.STATE === "46",
-    style: styleCounty,
-    onEachFeature: onEachCounty
-  }).addTo(map);
-
-  addLegend();
-}
-
-// ---------- INIT ----------
+// ======================================================
+// INIT
+// ======================================================
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Populate dropdown
@@ -347,29 +450,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     attribution: "© OpenStreetMap"
   }).addTo(map);
 
-  // Initial chart from statewide
-  await updateChartFromCity();
-
-  // Wire controls
-  select.addEventListener("change", async () => {
-    await updateChartFromCity();
-  });
-
-  document
-    .getElementById("timeScale")
-    .addEventListener("change", async () => {
-      // Keep same coordinates but change aggregation
-      const city = document.getElementById("citySelect").value;
-      const { lat, lon } = cities[city];
-      await updateChartFromCoords(lat, lon, `${city} rainfall`);
-    });
-
-  document.getElementById("resetZoom").addEventListener("click", () => {
-    if (chart && chart.resetZoom) {
-      chart.resetZoom();
-    }
-  });
-
   // Build choropleth
   await buildChoropleth();
+
+  // Initial chart
+  await updateChartFromCoords(
+    cities["Statewide Average"].lat,
+    cities["Statewide Average"].lon,
+    "Statewide rainfall"
+  );
+
+  // Controls
+  select.addEventListener("change", async () => {
+    const city = select.value;
+    const { lat, lon } = cities[city];
+    await updateChartFromCoords(lat, lon, `${city} rainfall`);
+  });
+
+  document.getElementById("timeScale").addEventListener("change", async () => {
+    const city = select.value;
+    const { lat, lon } = cities[city];
+    await updateChartFromCoords(lat, lon, `${city} rainfall`);
+  });
+
+  document.getElementById("resetZoom").addEventListener("click", () => {
+    if (chart && chart.resetZoom) chart.resetZoom();
+  });
+
+  setupMetricToggle();
 });
