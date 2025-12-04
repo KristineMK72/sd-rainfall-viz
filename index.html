@@ -8,7 +8,20 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
   <link rel="stylesheet" href="style.css" />
+  <style>
+.stats-panel { margin: 30px 0; padding: 20px; background: #f0f8ff; border-radius: 16px; border: 1px solid #b3e5ff; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.stat-card { background: white; padding: 16px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.stat-card h3 { margin: 0 0 8px; color: #333; font-size: 15px; font-weight: 600; }
+.big { font-size: 26px; font-weight: bold; margin: 5px 0; color: #1565c0; }
+.warning .big { color: #c62828; }
+.up .big { color: #2e7d32; }
+.down .big { color: #d32f2f; }
+small { color: #666; font-size: 13px; }
+</style>
 </head>
+  <script src="stats.js"></script>
+<script src="script.js"></script>
 <body>
   <div class="container">
     <h1>South Dakota Historical Rainfall</h1>
@@ -24,6 +37,9 @@
     </div>
 
     <canvas id="rainfallChart"></canvas>
+        <div id="statsPanel" class="stats-panel">
+      <p>Loading statistics…</p>
+    </div>
     <p class="footer">Data: Open-Meteo (1940–present) • Tap & drag to zoom • Pinch on mobile</p>
   </div>
 
