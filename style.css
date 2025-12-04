@@ -42,7 +42,6 @@ body {
   border: 1px solid #e5e7eb;
 }
 
-/* Two-column layout */
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
@@ -53,6 +52,50 @@ body {
 .right-panel {
   display: flex;
   flex-direction: column;
+}
+
+/* ---------------------------------------
+   Segmented Metric Toggle
+---------------------------------------- */
+.metric-toggle {
+  position: relative;
+  display: flex;
+  background: #e5e7eb;
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 12px;
+  height: 42px;
+  align-items: center;
+  user-select: none;
+}
+
+.metric-option {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 0.9rem;
+  padding: 8px 0;
+  cursor: pointer;
+  z-index: 2;
+  color: #374151;
+  transition: color 0.2s ease;
+}
+
+.metric-option.active {
+  color: #0d47a1;
+  font-weight: 600;
+}
+
+.metric-bg {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  transition: transform 0.4s ease;
 }
 
 /* ---------------------------------------
