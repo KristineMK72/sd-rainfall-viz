@@ -1,55 +1,60 @@
+/* ---------------------------------------
+   Global Layout
+---------------------------------------- */
 body {
   font-family: system-ui, sans-serif;
-  background: linear-gradient(135deg, #e0f7fa, #fffde7);
+  background: #f5f7fa;
   margin: 0;
-  padding: 15px;
+  padding: 20px;
   min-height: 100vh;
+  color: #1a1a1a;
 }
 
+/* ---------------------------------------
+   Container Card
+---------------------------------------- */
 .container {
   max-width: 1000px;
   margin: 0 auto;
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+  border: 1px solid #e5e7eb;
 }
 
+/* ---------------------------------------
+   Typography
+---------------------------------------- */
 h1 {
   text-align: center;
-  color: #1565c0;
-  margin-bottom: 10px;
+  color: #0d47a1;
+  margin: 0 0 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
 }
 
+/* ---------------------------------------
+   Controls
+---------------------------------------- */
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
-  margin: 20px 0;
+  margin: 24px 0;
 }
 
-select, button {
-  padding: 10px 14px;
-  font-size: 16px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-}
-
+select,
 button {
-  background: #1565c0;
-  color: white;
-  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 15px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-#rainfallChart {
-  margin-top: 20px;
-  touch-action: pan-y; /* better mobile experience */
-}
-
-.footer {
-  text-align: center;
-  margin-top: 20px;
-  color: #666;
-  font-size: 14px;
-}
+select:focus,
+button:focus {
+  outline
