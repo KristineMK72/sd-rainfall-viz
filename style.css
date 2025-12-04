@@ -3,7 +3,7 @@
 ---------------------------------------- */
 body {
   font-family: system-ui, sans-serif;
-  background: #f5f7fa;
+  background: #f5f7fa; /* Lighter background than #fafafa */
   margin: 0;
   padding: 20px;
   min-height: 100vh;
@@ -34,6 +34,13 @@ h1 {
   letter-spacing: -0.3px;
 }
 
+h3 {
+  margin-top: 0;
+  font-size: 1.1em;
+  font-weight: 500;
+  color: #444;
+}
+
 /* ---------------------------------------
    Controls
 ---------------------------------------- */
@@ -43,6 +50,7 @@ h1 {
   gap: 12px;
   justify-content: center;
   margin: 24px 0;
+  align-items: center; /* Ensures vertical alignment */
 }
 
 select,
@@ -53,8 +61,137 @@ button {
   border: 1px solid #d1d5db;
   background: #ffffff;
   transition: border-color 0.15s ease, background 0.15s ease;
+  cursor: pointer;
 }
 
 select:focus,
 button:focus {
-  outline
+  outline: none; /* Completed rule */
+  border-color: #0d47a1;
+  box-shadow: 0 0 0 2px rgba(13, 71, 161, 0.2);
+}
+
+button:hover {
+    background: #f0f4f8;
+}
+
+button:active {
+    background: #e0e5eb;
+}
+
+
+/* ---------------------------------------
+   Map & Chart
+---------------------------------------- */
+#map {
+  height: 300px;
+  width: 100%;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chart-container {
+  height: 400px;
+  max-width: 100%;
+  margin: 0 auto 20px;
+  position: relative;
+}
+
+
+/* ---------------------------------------
+   Stats Panel
+---------------------------------------- */
+.stats-panel {
+  margin-top: 20px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: #f7f7f7;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.stat-card .big {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 4px 0 8px;
+    color: #0d47a1;
+}
+
+.stat-card small {
+    font-size: 0.8em;
+    color: #666;
+}
+
+.stat-card.highlight {
+  background: #e3f2fd; /* Light Blue */
+}
+
+.stat-card.warning {
+  background: #ffebee; /* Light Red */
+}
+
+.stat-card.up {
+  background: #e8f5e9; /* Light Green */
+}
+
+.stat-card.down {
+  background: #ffebee; /* Light Red */
+}
+
+/* ---------------------------------------
+   Leaflet Legend & Tooltip (New Styles)
+---------------------------------------- */
+.info.legend {
+  padding: 8px 12px;
+  font-size: 13px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  line-height: 18px;
+  color: #333;
+}
+
+.legend h4 {
+    margin: 0 0 5px;
+    color: #0d47a1;
+    font-weight: 600;
+}
+
+.legend i {
+  width: 14px;
+  height: 14px;
+  float: left;
+  margin-right: 8px;
+  opacity: 0.8;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+
+/* ---------------------------------------
+   Media Queries
+---------------------------------------- */
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+  .container {
+    padding: 15px;
+  }
+  #map {
+    height: 220px;
+  }
+  .chart-container {
+    height: 300px;
+  }
+}
