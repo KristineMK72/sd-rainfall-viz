@@ -1,0 +1,19 @@
+{
+  "builds": [
+    {
+      "src": "src/index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "build": {
+    "env": {
+      "NODE_OPTIONS": "--max-old-space-size=4096"
+    }
+  },
+  "crons": [],
+  "functions": {},
+  "headers": [],
+  "redirects": [],
+  "rewrites": [],
+  "buildCache": false
+}
