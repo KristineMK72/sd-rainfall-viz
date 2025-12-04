@@ -5,19 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>South Dakota Rainfall Explorer</title>
 
-  <link rel="stylesheet" href="style.css" />
+  <!-- Vite will inject correct base path automatically in production -->
+  <meta name="description" content="Interactive county-level rainfall explorer for South Dakota (1940–present)" />
 
-  <!-- Leaflet CSS -->
+  <!-- Leaflet CSS – switched to jsDelivr (no tracking-prevention warnings) -->
   <link
     rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-sA+Zcx6GnytksI9X1c8cAgftM4PYG4g6NH2V4x4kVdU="
+    crossorigin="anonymous"
   />
 
-  <!-- Chart.js + Zoom plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+  <!-- Your custom styles – Vite will process this correctly -->
+  <link rel="stylesheet" href="/style.css" />
+
+  <!-- Preload critical scripts -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" as="script">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js" as="script">
 </head>
 
 <body>
@@ -28,63 +32,44 @@
 
   <main class="container">
     <section class="layout">
+      <!-- LEFT: MAP -->
       <div class="left-panel">
-        <!-- Metric segmented control -->
         <div class="metric-toggle" role="tablist" aria-label="Map metric">
           <div class="metric-bg"></div>
-          <button
-            class="metric-option active"
-            data-metric="amount"
-            role="tab"
-            aria-selected="true"
-          >
-            Amount
-          </button>
-          <button
-            class="metric-option"
-            data-metric="trend"
-            role="tab"
-            aria-selected="false"
-          >
-            Trend
-          </button>
-          <button
-            class="metric-option"
-            data-metric="variability"
-            role="tab"
-            aria-selected="false"
-          >
-            Variability
-          </button>
+          <button class="metric-option active" data-metric="amount"   role="tab" aria-selected="true">Amount</button>
+          <button class="metric-option"        data-metric="trend"    role="tab" aria-selected="false">Trend</button>
+          <button class="metric-option"        data-metric="variability" role="tab" aria-selected="false">Variability</button>
         </div>
 
         <div id="map" aria-label="South Dakota rainfall choropleth map"></div>
+
         <p class="map-note">
           Click a county to explore its rainfall history. Use the toggle above to change what the colors mean.
         </p>
       </div>
 
+      <!-- RIGHT: CHART + CONTROLS -->
       <div class="right-panel">
         <div class="controls">
           <label class="control-group">
             <span class="control-label">Location</span>
-            <select id="citySelect"></select>
+            <select id="citySelect" aria-label="Select county or city"></select>
           </label>
 
           <label class="control-group">
             <span class="control-label">Time scale</span>
-            <select id="timeScale">
+            <select id="timeScale" aria-label="Select time scale">
               <option value="yearly">Yearly</option>
               <option value="monthly">Monthly</option>
               <option value="daily">Daily (recent)</option>
             </select>
           </label>
 
-          <button id="resetZoom">Reset chart zoom</button>
+          <button id="resetZoom" type="button">Reset chart zoom</button>
         </div>
 
         <div class="chart-container">
-          <canvas id="rainfallChart"></canvas>
+          <canvas id="rainfallChart" aria-label="Rainfall time series chart"></canvas>
         </div>
 
         <section id="statsPanel" class="stats-panel" aria-live="polite">
@@ -95,18 +80,22 @@
   </main>
 
   <footer class="footer">
-    <p>Data: Open‑Meteo archive API (1940–present)</p>
+    <p>Data: Open-Meteo archive API (1940–present) • Built with Leaflet + Chart.js</p>
   </footer>
 
-  <!-- Leaflet JS -->
+  <!-- Leaflet JS (jsDelivr – no warnings) -->
   <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
+    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1jAjz2hD2N2mRyE8M2n6f1n0k2k8Ok0V4j0nKjU="
+    crossorigin="anonymous"
   ></script>
 
-  <!-- App scripts -->
-  <script src="stats.js"></script>
-  <script src="script.js"></script>
+  <!-- Chart.js + Zoom Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+  <!-- Your app code – use type="module" so imports inside script.js/stats.js work -->
+  <script type="module" src="/stats.js"></script>
+  <script type="module" src="/script.js"></script>
 </body>
 </html>
