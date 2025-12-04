@@ -1,121 +1,138 @@
+// ======================================================
+// STATISTICS ENGINE
+// ======================================================
+
+// Compute stats from chart data
 function calculateStats(dataPoints, mode, label) {
-  if (!dataPoints || dataPoints.length === 0) return null;
+  if (!dataPoints || dataPoints.length === 0) {
+    return {
+      title: label,
+      total: 0,
+      average: 0,
+      wettest: null,
+      driest: null,
+      last10: null,
+      prev10: null,
+      trend: null
+    };
+  }
 
+  // Extract numeric values
   const values = dataPoints.map(d => d.y);
+
+  // Total
   const total = values.reduce((a, b) => a + b, 0);
-  const avg = total / values.length;
 
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const maxIdx = values.indexOf(max);
-  const minIdx = values.indexOf(min);
+  // Average
+  const average = total / values.length;
 
-  let changePercent = null;
-  if (mode === "yearly" && dataPoints.length >= 20) {
-    const recent10 = values.slice(-10).reduce((a, b) => a + b, 0) / 10;
-    const previous10 = values.slice(-20, -10).reduce((a, b) => a + b, 0) / 10;
-    if (previous10 > 0) {
-      changePercent = ((recent10 - previous10) / previous10 * 100).toFixed(1);
-    }
+  // Wettest / driest
+  const wettest = Math.max(...values);
+  const driest = Math.min(...values);
+
+  // Last 10 vs previous 10 (only for yearly/monthly)
+  let last10 = null;
+  let prev10 = null;
+  let trend = null;
+
+  if (mode !== "daily" && values.length >= 20) {
+    const last10vals = values.slice(-10);
+    const prev10vals = values.slice(-20, -10);
+
+    last10 = last10vals.reduce((a, b) => a + b, 0) / 10;
+    prev10 = prev10vals.reduce((a, b) => a + b, 0) / 10;
+
+    trend = ((last10 - prev10) / prev10) * 100;
   }
-
-  // Long-term baseline (1940–1999) vs recent decade
-  let longTermTrend = null;
-  if (mode === "yearly") {
-    const oldValues = dataPoints.filter(d => d.x < "2000").map(d => d.y);
-    const oldAvg = oldValues.length
-      ? oldValues.reduce((a, b) => a + b, 0) / oldValues.length
-      : null;
-
-    if (values.length >= 10) {
-      const recentAvg = values.slice(-10).reduce((a, b) => a + b, 0) / 10;
-      if (oldAvg && oldAvg > 0) {
-        longTermTrend = ((recentAvg - oldAvg) / oldAvg * 100).toFixed(1);
-      }
-    }
-  }
-
-  const period =
-    mode === "yearly"
-      ? "1940–present · Annual totals"
-      : mode === "monthly"
-      ? "1940–present · Monthly totals"
-      : "Recent years · Daily totals";
 
   return {
-    label,
-    total: total.toFixed(1),
-    average: avg.toFixed(2),
-    wettest: { value: max.toFixed(2), period: dataPoints[maxIdx].x },
-    driest: { value: min.toFixed(2), period: dataPoints[minIdx].x },
-    changePercent,
-    longTermTrend,
-    period
+    title: label,
+    total,
+    average,
+    wettest,
+    driest,
+    last10,
+    prev10,
+    trend
   };
 }
 
+// ======================================================
+// RENDER STATS PANEL
+// ======================================================
+
 function updateStatsPanel(stats) {
   const panel = document.getElementById("statsPanel");
-  if (!panel) return;
 
   if (!stats) {
     panel.innerHTML = "<p>No data available.</p>";
     return;
   }
 
-  const avgUnit = stats.period.includes("Annual") ? "in/yr" : "in/mo";
+  const {
+    title,
+    total,
+    average,
+    wettest,
+    driest,
+    last10,
+    prev10,
+    trend
+  } = stats;
+
+  // Trend card class
+  let trendClass = "";
+  if (trend != null) {
+    if (trend > 5) trendClass = "up";
+    else if (trend < -5) trendClass = "down";
+  }
 
   panel.innerHTML = `
+    <h3 style="margin:0 0 10px; color:#0d47a1; font-size:1.1rem;">
+      ${title}
+    </h3>
+
     <div class="stat-grid">
+
       <div class="stat-card">
-        <h3>Total rainfall</h3>
-        <p class="big">${stats.total} inches</p>
-        <small>${stats.period}</small>
+        <div class="big">${total.toFixed(1)}</div>
+        <small>Total rainfall (inches)</small>
       </div>
 
       <div class="stat-card">
-        <h3>Average</h3>
-        <p class="big">${stats.average} ${avgUnit}</p>
-        <small>Average over all available years</small>
+        <div class="big">${average.toFixed(2)}</div>
+        <small>Average (${statsModeLabel()})</small>
       </div>
 
       <div class="stat-card highlight">
-        <h3>Wettest period</h3>
-        <p class="big">${stats.wettest.value} in</p>
-        <small>${stats.wettest.period}</small>
+        <div class="big">${wettest?.toFixed(2)}</div>
+        <small>Wettest ${statsModeLabel()}</small>
       </div>
 
       <div class="stat-card warning">
-        <h3>Driest period</h3>
-        <p class="big">${stats.driest.value} in</p>
-        <small>${stats.driest.period}</small>
+        <div class="big">${driest?.toFixed(2)}</div>
+        <small>Driest ${statsModeLabel()}</small>
       </div>
 
       ${
-        stats.changePercent !== null
+        trend != null
           ? `
-      <div class="stat-card ${stats.changePercent > 0 ? "up" : "down"}">
-        <h3>Last 10 yrs vs prior 10</h3>
-        <p class="big">${
-          stats.changePercent > 0 ? "+" : ""
-        }${stats.changePercent}%</p>
-        <small>Yearly totals trend</small>
-      </div>`
+        <div class="stat-card ${trendClass}">
+          <div class="big">${trend.toFixed(1)}%</div>
+          <small>Last 10 vs previous 10</small>
+        </div>
+      `
           : ""
       }
 
-      ${
-        stats.longTermTrend !== null
-          ? `
-      <div class="stat-card ${stats.longTermTrend > 0 ? "up" : "down"}">
-        <h3>Recent decade vs 1940–1999</h3>
-        <p class="big">${
-          stats.longTermTrend > 0 ? "+" : ""
-        }${stats.longTermTrend}%</p>
-        <small>Long-term rainfall shift</small>
-      </div>`
-          : ""
-      }
     </div>
   `;
+}
+
+// Helper: label for stats depending on time scale
+function statsModeLabel() {
+  const mode = document.getElementById("timeScale").value;
+  if (mode === "yearly") return "year";
+  if (mode === "monthly") return "month";
+  return "day";
 }
