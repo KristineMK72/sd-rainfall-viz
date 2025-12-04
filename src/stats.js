@@ -1,10 +1,16 @@
 // ======================================================
-// STATISTICS ENGINE
+// STATISTICS ENGINE – South Dakota Rainfall Explorer
 // ======================================================
 
-// Compute stats from chart data
-function calculateStats(dataPoints, mode, label) {
-  if (!dataPoints || dataPoints.length === 0) {
+/**
+ * Calculate statistics from an array of data points
+ * @param {Array<{x: string|number, y: number}>} dataPoints
+ * @param {"daily"|"monthly"|"yearly"} mode
+ * @param {string} label - e.g., "Sioux Falls", "South Dakota Average", etc.
+ */
+function calculateStats(dataPoints = [], mode = "yearly", label = "Rainfall") {
+  // Guard clause: no data
+  if (!Array.isArray(dataPoints) || dataPoints.length === 0) {
     return {
       title: label,
       total: 0,
@@ -13,24 +19,20 @@ function calculateStats(dataPoints, mode, label) {
       driest: null,
       last10: null,
       prev10: null,
-      trend: null
+      trend: null,
     };
   }
 
-  // Extract numeric values
-  const values = dataPoints.map(d => d.y);
+  // Extract rainfall values
+  const values = dataPoints.map(d => d.y).filter(v => typeof v === "number" && !isNaN(v));
+  if (values.length === 0) return { title: label, total: 0, average: 0, wettest: null, driest: null, last10: null, prev10: null, trend: null };
 
-  // Total
   const total = values.reduce((a, b) => a + b, 0);
-
-  // Average
   const average = total / values.length;
-
-  // Wettest / driest
   const wettest = Math.max(...values);
   const driest = Math.min(...values);
 
-  // Last 10 vs previous 10 (only for yearly/monthly)
+  // Only calculate trend for monthly/yearly data with enough points
   let last10 = null;
   let prev10 = null;
   let trend = null;
@@ -42,7 +44,8 @@ function calculateStats(dataPoints, mode, label) {
     last10 = last10vals.reduce((a, b) => a + b, 0) / 10;
     prev10 = prev10vals.reduce((a, b) => a + b, 0) / 10;
 
-    trend = ((last10 - prev10) / prev10) * 100;
+    // Avoid division by zero
+    trend = prev10 === 0 ? 0 : ((last10 - prev10) / prev10) * 100;
   }
 
   return {
@@ -53,86 +56,79 @@ function calculateStats(dataPoints, mode, label) {
     driest,
     last10,
     prev10,
-    trend
+    trend,
   };
 }
 
 // ======================================================
 // RENDER STATS PANEL
 // ======================================================
-
 function updateStatsPanel(stats) {
   const panel = document.getElementById("statsPanel");
-
-  if (!stats) {
-    panel.innerHTML = "<p>No data available.</p>";
+  if (!panel) {
+    console.warn("statsPanel element not found!");
     return;
   }
 
-  const {
-    title,
-    total,
-    average,
-    wettest,
-    driest,
-    last10,
-    prev10,
-    trend
-  } = stats;
+  if (!stats || stats.total === 0 && stats.average === 0) {
+    panel.innerHTML = "<p style='color:#666; text-align:center; padding:20px;'>No data available.</p>";
+    return;
+  }
 
-  // Trend card class
-  let trendClass = "";
-  if (trend != null) {
+  const { title, total, average, wettest, driest, trend } = stats;
+
+  // Determine trend arrow and color
+  let trendHTML = "";
+  let trendClass = "neutral";
+
+  if (trend !== null) {
     if (trend > 5) trendClass = "up";
     else if (trend < -5) trendClass = "down";
+
+    const arrow = trend > 0 ? "↑" : "↓";
+    trendHTML = `
+      <div class="stat-card ${trendClass}">
+        <div class="big">${Math.abs(trend).toFixed(1)}% ${arrow}</div>
+        <small>Last 10 vs previous 10 ${getModeLabel()}</small>
+      </div>
+    `;
   }
 
   panel.innerHTML = `
-    <h3 style="margin:0 0 10px; color:#0d47a1; font-size:1.1rem;">
+    <h3 style="margin:0 0 12px; color:#0d47a1; font-weight:600;">
       ${title}
     </h3>
-
     <div class="stat-grid">
-
       <div class="stat-card">
         <div class="big">${total.toFixed(1)}</div>
-        <small>Total rainfall (inches)</small>
+        <small>Total rainfall (in)</small>
       </div>
-
       <div class="stat-card">
         <div class="big">${average.toFixed(2)}</div>
-        <small>Average (${statsModeLabel()})</small>
+        <small>Average per ${getModeLabel()}</small>
       </div>
-
       <div class="stat-card highlight">
-        <div class="big">${wettest?.toFixed(2)}</div>
-        <small>Wettest ${statsModeLabel()}</small>
+        <div class="big">${wettest.toFixed(2)}</div>
+        <small>Wettest ${getModeLabel()}</small>
       </div>
-
       <div class="stat-card warning">
-        <div class="big">${driest?.toFixed(2)}</div>
-        <small>Driest ${statsModeLabel()}</small>
+        <div class="big">${driest.toFixed(2)}</div>
+        <small>Driest ${getModeLabel()}</small>
       </div>
-
-      ${
-        trend != null
-          ? `
-        <div class="stat-card ${trendClass}">
-          <div class="big">${trend.toFixed(1)}%</div>
-          <small>Last 10 vs previous 10</small>
-        </div>
-      `
-          : ""
-      }
-
+      ${trendHTML}
     </div>
   `;
 }
 
-// Helper: label for stats depending on time scale
-function statsModeLabel() {
-  const mode = document.getElementById("timeScale").value;
-  if (mode === "yearly") return "year";
-  if (mode === "monthly") return "month";
-  return "day";
+// Helper: get current time scale label
+function getModeLabel() {
+  const select = document.getElementById("timeScale");
+  const mode = select?.value || "year";
+  return mode === "yearly" ? "year" : mode === "monthly" ? "month" : "day";
+}
+
+// Optional: auto-export if using modules (safe for both <script> and import)
+// (Vite will handle this correctly either way)
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { calculateStats, updateStatsPanel };
 }
