@@ -49,9 +49,10 @@ let chart = null;
 // FETCH & AGGREGATE DATA
 // ======================================================
 
-/** Fetches daily precipitation data from Open-Meteo archive API. */
 async function fetchDaily(lat, lon) {
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=1940-01-01&end_date=2025-12-31&daily=precipitation_sum&precipitation_unit=inch&timezone=America/Chicago`;
+    // Removed end_date=2025-12-31 to let the API default to the present date.
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=1940-01-01&daily=precipitation_sum&precipitation_unit=inch&timezone=America/Chicago`;
+    // ... rest of the function remains the same
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
