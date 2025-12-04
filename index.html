@@ -5,152 +5,58 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>South Dakota Historical Rainfall</title>
 
-  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="style.css" /> 
+
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
 
-  <!-- Chart.js + Zoom Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
 
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #fafafa;
-    }
-
-    header h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    /* MAP */
-    #map {
-      height: 300px;
-      width: 100%;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    /* CONTROLS */
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
-      align-items: center;
-    }
-
-    /* CHART */
-    .chart-container {
-      height: 400px;
-      max-width: 100%;
-      margin: 0 auto 20px;
-      position: relative;
-    }
-
-    #rainfallChart {
-      height: 100% !important;
-      width: 100% !important;
-    }
-
-    /* STATS */
-    .stats-panel {
-      margin-top: 20px;
-    }
-
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-    }
-
-    .stat-card {
-      background: #f7f7f7;
-      padding: 12px;
-      border-radius: 8px;
-      text-align: center;
-    }
-
-    .stat-card.highlight {
-      background: #e3f2fd;
-    }
-
-    .stat-card.warning {
-      background: #ffebee;
-    }
-
-    .stat-card.up {
-      background: #e8f5e9;
-    }
-
-    .stat-card.down {
-      background: #ffebee;
-    }
-
-    @media (max-width: 600px) {
-      #map {
-        height: 220px;
-      }
-      .chart-container {
-        height: 300px;
-      }
-    }
-  </style>
-</head>
+  </head>
 
 <body>
   <header>
     <h1>South Dakota Historical Rainfall</h1>
   </header>
 
-  <!-- MAP -->
-  <div id="map"></div>
+  <div class="container"> <div id="map"></div>
 
-  <!-- CONTROLS -->
-  <div class="controls">
-    <label>
-      City:
-      <select id="citySelect"></select>
-    </label>
+    <div class="controls">
+      <label>
+        City:
+        <select id="citySelect"></select>
+      </label>
 
-    <label>
-      Time Scale:
-      <select id="timeScale">
-        <option value="yearly">Yearly</option>
-        <option value="monthly">Monthly</option>
-        <option value="daily">Daily</option>
-      </select>
-    </label>
+      <label>
+        Time Scale:
+        <select id="timeScale">
+          <option value="yearly">Yearly</option>
+          <option value="monthly">Monthly</option>
+          <option value="daily">Daily</option>
+        </select>
+      </label>
 
-    <button id="resetZoom">Reset Zoom</button>
-  </div>
+      <button id="resetZoom">Reset Zoom</button>
+    </div>
 
-  <!-- CHART -->
-  <div class="chart-container">
-    <canvas id="rainfallChart"></canvas>
-  </div>
+    <div class="chart-container">
+      <canvas id="rainfallChart"></canvas>
+    </div>
 
-  <!-- STATS -->
-  <section id="statsPanel" class="stats-panel">
-    <p>Loading statistics…</p>
-  </section>
-
-  <footer>
+    <section id="statsPanel" class="stats-panel">
+      <p>Loading statistics…</p>
+    </section>
+  </div> <footer>
     <p style="text-align:center; margin-top:20px;">
       Data Source: Open‑Meteo (1940–present)
     </p>
   </footer>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Your scripts -->
   <script src="script.js"></script>
   <script src="stats.js"></script>
 
