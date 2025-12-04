@@ -2,47 +2,176 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interactive South Dakota Rainfall</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>South Dakota Historical Rainfall</title>
+
+  <!-- Leaflet Map CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <!-- Chart.js + Zoom Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
-  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+
   <style>
-.stats-panel { margin: 30px 0; padding: 20px; background: #f0f8ff; border-radius: 16px; border: 1px solid #b3e5ff; }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
-.stat-card { background: white; padding: 16px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.stat-card h3 { margin: 0 0 8px; color: #333; font-size: 15px; font-weight: 600; }
-.big { font-size: 26px; font-weight: bold; margin: 5px 0; color: #1565c0; }
-.warning .big { color: #c62828; }
-.up .big { color: #2e7d32; }
-.down .big { color: #d32f2f; }
-small { color: #666; font-size: 13px; }
-</style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #fafafa;
+    }
+
+    header h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    /* MAP */
+    #map {
+      height: 300px;
+      width: 100%;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* CONTROLS */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    /* CHART */
+    .chart-container {
+      height: 400px;
+      max-width: 100%;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+
+    #rainfallChart {
+      height: 100% !important;
+      width: 100% !important;
+    }
+
+    /* STATS */
+    .stats-panel {
+      margin-top: 20px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: #f7f7f7;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-card.highlight {
+      background: #e3f2fd;
+    }
+
+    .stat-card.warning {
+      background: #ffebee;
+    }
+
+    .stat-card.up {
+      background: #e8f5e9;
+    }
+
+    .stat-card.down {
+      background: #ffebee;
+    }
+
+    @media (max-width: 600px) {
+      #map {
+        height: 220px;
+      }
+      .chart-container {
+        height: 300px;
+      }
+    }
+  </style>
 </head>
-  <script src="stats.js"></script>
-<script src="script.js"></script>
+
 <body>
-  <div class="container">
+  <header>
     <h1>South Dakota Historical Rainfall</h1>
-    
-    <div class="controls">
+  </header>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <label>
+      City:
       <select id="citySelect"></select>
+    </label>
+
+    <label>
+      Time Scale:
       <select id="timeScale">
         <option value="yearly">Yearly</option>
-        <option value="monthly" selected>Monthly</option>
-        <option value="daily">Daily (last 2 years)</option>
+        <option value="monthly">Monthly</option>
+        <option value="daily">Daily</option>
       </select>
-      <button id="resetZoom">Reset Zoom</button>
-    </div>
+    </label>
 
-    <canvas id="rainfallChart"></canvas>
-        <div id="statsPanel" class="stats-panel">
-      <p>Loading statistics…</p>
-    </div>
-    <p class="footer">Data: Open-Meteo (1940–present) • Tap & drag to zoom • Pinch on mobile</p>
+    <button id="resetZoom">Reset Zoom</button>
   </div>
 
+  <!-- CHART -->
+  <div class="chart-container">
+    <canvas id="rainfallChart"></canvas>
+  </div>
+
+  <!-- STATS -->
+  <section id="statsPanel" class="stats-panel">
+    <p>Loading statistics…</p>
+  </section>
+
+  <footer>
+    <p style="text-align:center; margin-top:20px;">
+      Data Source: Open‑Meteo (1940–present)
+    </p>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Your scripts -->
   <script src="script.js"></script>
+  <script src="stats.js"></script>
+
+  <script>
+    // Initialize map
+    const map = L.map("map").setView([44.37, -100.35], 7);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    // Marker that updates when city changes
+    const marker = L.marker([44.37, -100.35]).addTo(map);
+
+    document.getElementById("citySelect").addEventListener("change", () => {
+      const city = document.getElementById("citySelect").value;
+      const { lat, lon } = cities[city];
+      marker.setLatLng([lat, lon]);
+      map.setView([lat, lon], 7);
+    });
+  </script>
 </body>
 </html>
