@@ -1,7 +1,23 @@
-#map { 
-  height: 600px !important; 
-  width: 100%; 
-  border: 2px solid #cbd5e1; 
-  border-radius: 12px; 
-  background: #f1f5f9;
-}
+/* South Dakota Rainfall Explorer – Full Working Styles */
+* { box-sizing: border-box; margin:0; padding:0; }
+body { font-family: system-ui, sans-serif; background:#f8fafc; }
+#map { height: 650px !important; width: 100%; border-radius: 12px; border: 3px solid #94a3b8; background:#e2e8f0; }
+.page-header { background: #0d47a1; color:white; padding:2rem; text-align:center; }
+.subtitle { opacity:0.9; font-size:1.1rem; }
+.container { max-width:1400px; margin:2rem auto; padding:0 1rem; }
+.layout { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
+.left-panel, .right-panel { background:white; padding:1.5rem; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+.metric-toggle { display:flex; background:#e2e8f0; border-radius:50px; overflow:hidden; margin-bottom:1rem; position:relative; }
+.metric-bg { position:absolute; width:33.33%; height:100%; background:#0d47a1; border-radius:50px; transition:transform .3s; }
+.metric-option { flex:1; padding:0.8rem; background:transparent; border:none; cursor:pointer; font-weight:600; }
+.metric-option.active { color:white; }
+.controls { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+select, button { padding:0.75rem; border-radius:8px; border:2px solid #cbd5e1; }
+#resetZoom { background:#dc2626; color:white; cursor:pointer; }
+.chart-container { height:400px; border:2px solid #cbd5e1; border-radius:12px; overflow:hidden; }
+.stats-panel { background:#f8fafc; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; }
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1rem; margin-top:1rem; }
+.stat-card { background:white; padding:1rem; border-radius:8px; text-align:center; border:1px solid #e2e8f0; }
+.big { font-size:2rem; font-weight:700; color:#0d47a1; }
+.footer { text-align:center; padding:2rem; color:#64748b; font-size:0.9rem; }
+@media (max-width:960px) { .layout { grid-template-columns:1fr; } #map{height:500px;} }
