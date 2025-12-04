@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>South Dakota Historical Rainfall</title>
+  <title>South Dakota Rainfall Explorer</title>
 
   <link rel="stylesheet" href="style.css" />
 
@@ -29,8 +29,39 @@
   <main class="container">
     <section class="layout">
       <div class="left-panel">
+        <!-- Metric segmented control -->
+        <div class="metric-toggle" role="tablist" aria-label="Map metric">
+          <div class="metric-bg"></div>
+          <button
+            class="metric-option active"
+            data-metric="amount"
+            role="tab"
+            aria-selected="true"
+          >
+            Amount
+          </button>
+          <button
+            class="metric-option"
+            data-metric="trend"
+            role="tab"
+            aria-selected="false"
+          >
+            Trend
+          </button>
+          <button
+            class="metric-option"
+            data-metric="variability"
+            role="tab"
+            aria-selected="false"
+          >
+            Variability
+          </button>
+        </div>
+
         <div id="map" aria-label="South Dakota rainfall choropleth map"></div>
-        <p class="map-note">Click a county to explore its rainfall history.</p>
+        <p class="map-note">
+          Click a county to explore its rainfall history. Use the toggle above to change what the colors mean.
+        </p>
       </div>
 
       <div class="right-panel">
