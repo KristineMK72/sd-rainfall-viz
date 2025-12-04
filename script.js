@@ -1,3 +1,4 @@
+let currentDataPoints = [];   // ← add this line
 const cities = {
   "Statewide Average": { lat: 44.37, lon: -100.35 },
   "Sioux Falls":      { lat: 43.54, lon: -96.73 },
@@ -55,9 +56,12 @@ async function updateChart() {
   const { lat, lon } = cities[city];
 
   const dataPoints = await fetchData(lat, lon, mode);
-
+  currentDataPoints = dataPoints;   // ← add this
   const label = mode === "yearly" ? "Annual" : mode === "monthly" ? "Monthly" : "Daily";
-  
+
+    // Calculate and show statistics
+  const stats = calculateStats(dataPoints, mode, city);
+  updateStatsPanel(stats);
   if (chart) chart.destroy();
 
   chart = new Chart(document.getElementById("rainfallChart"), {
