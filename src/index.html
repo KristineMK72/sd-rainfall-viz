@@ -4,22 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>South Dakota Rainfall Explorer</title>
-  <meta name="description" content="Interactive county-level rainfall explorer for South Dakota (1940–present)" />
 
-  <!-- Leaflet CSS – jsDelivr = no tracking warnings -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-sA+Zcx6GnytksI9X1c8cAgftM4PYG4g6NH2V4x4kVdU="
-    crossorigin="anonymous"
-  />
+  <!-- Leaflet from jsDelivr – eliminates tracking warnings -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 
-  <!-- Your custom styles – correct Vite/Vercel path -->
+  <!-- Your CSS – absolute path so Vite serves it correctly -->
   <link rel="stylesheet" href="/style.css" />
-
-  <!-- Preload Chart.js for speed -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" as="script" />
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js" as="script" />
 </head>
 
 <body>
@@ -30,13 +20,12 @@
 
   <main class="container">
     <section class="layout">
-      <!-- LEFT: MAP -->
       <div class="left-panel">
         <div class="metric-toggle" role="tablist" aria-label="Map metric">
           <div class="metric-bg"></div>
-          <button class="metric-option active"   data-metric="amount"      role="tab" aria-selected="true">Amount</button>
-          <button class="metric-option"           data-metric="trend"       role="tab" aria-selected="false">Trend</button>
-          <button class="metric-option"           data-metric="variability" role="tab" aria-selected="false">Variability</button>
+          <button class="metric-option active" data-metric="amount"      role="tab" aria-selected="true">Amount</button>
+          <button class="metric-option"        data-metric="trend"       role="tab" aria-selected="false">Trend</button>
+          <button class="metric-option"        data-metric="variability" role="tab" aria-selected="false">Variability</button>
         </div>
 
         <div id="map" aria-label="South Dakota rainfall choropleth map"></div>
@@ -46,28 +35,25 @@
         </p>
       </div>
 
-      <!-- RIGHT: CHART + CONTROLS -->
       <div class="right-panel">
         <div class="controls">
           <label class="control-group">
             <span class="control-label">Location</span>
-            <select id="citySelect" aria-label="Select location"></select>
+            <select id="citySelect"></select>
           </label>
-
           <label class="control-group">
             <span class="control-label">Time scale</span>
-            <select id="timeScale" aria-label="Select time scale">
+            <select id="timeScale">
               <option value="yearly">Yearly</option>
               <option value="monthly">Monthly</option>
               <option value="daily">Daily (recent)</option>
             </select>
           </label>
-
-          <button id="resetZoom" type="button">Reset chart zoom</button>
+          <button id="resetZoom">Reset chart zoom</button>
         </div>
 
         <div class="chart-container">
-          <canvas id="rainfallChart" aria-label="Rainfall time series chart"></canvas>
+          <canvas id="rainfallChart"></canvas>
         </div>
 
         <section id="statsPanel" class="stats-panel" aria-live="polite">
@@ -78,21 +64,17 @@
   </main>
 
   <footer class="footer">
-    <p>Data: Open-Meteo archive API (1940–present) • Built with Leaflet + Chart.js</p>
+    <p>Data: Open-Meteo archive API (1940–present)</p>
   </footer>
 
-  <!-- Leaflet JS – jsDelivr (no tracking warnings) -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1jAjz2hD2N2mRyE8M2n6f1n0k2k8Ok0V4j0nKjU="
-    crossorigin="anonymous"
-  ></script>
+  <!-- Leaflet JS -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Chart.js + Zoom Plugin -->
+  <!-- Chart.js + Zoom -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
-  <!-- Your app – type="module" + absolute paths so Vite/Vercel serves them correctly -->
+  <!-- Your app code – type="module" + absolute paths = works on Vercel -->
   <script type="module" src="/stats.js"></script>
   <script type="module" src="/script.js"></script>
 </body>
