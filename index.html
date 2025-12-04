@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interactive South Dakota Rainfall</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>South Dakota Historical Rainfall</h1>
+    
+    <div class="controls">
+      <select id="citySelect"></select>
+      <select id="timeScale">
+        <option value="yearly">Yearly</option>
+        <option value="monthly" selected>Monthly</option>
+        <option value="daily">Daily (last 2 years)</option>
+      </select>
+      <button id="resetZoom">Reset Zoom</button>
+    </div>
+
+    <canvas id="rainfallChart"></canvas>
+    <p class="footer">Data: Open-Meteo (1940–present) • Tap & drag to zoom • Pinch on mobile</p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
