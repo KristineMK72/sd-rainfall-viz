@@ -142,8 +142,3 @@ document.addEventListener("DOMContentLoaded", async () => {
     geoJsonLayer.setStyle(styleCounty);
   });
 });
-EOF
-
-git add script.js
-git commit -m "PERFECTION: ALL 66 counties auto-added to dropdown + fully interactive + stats work"
-git push
