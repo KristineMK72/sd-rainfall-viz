@@ -1,83 +1,61 @@
-// ======================================================
-// STATISTICS ENGINE – South Dakota Rainfall Explorer
-// ======================================================
+export function calculateStats(dataPoints = [], mode = "yearly", label = "Rainfall") {
+  if (!Array.isArray(dataPoints) || dataPoints.length === 0) {
+    return { title: label, total: 0, average: 0, wettest: null, driest: null, last10: null, prev10: null, trend: null };
+  }
 
-/**
- * Calculates comprehensive statistics from an array of time-series data points.
- * @param {Array<{x: string|number, y: number}>} dataPoints - Array of {time, value} objects.
- * @param {string} [mode="yearly"] - The aggregation level (e.g., "yearly", "monthly").
- * @param {string} [label="Rainfall"] - Descriptive label for the data set.
- * @returns {object} An object containing key statistics like total, average, trends, etc.
- */
-export function calculateStats(
-    dataPoints = [], 
-    mode = "yearly", 
-    label = "Rainfall"
-) {
-    // --- 1. Guard Clause and Initialization ---
-    if (!Array.isArray(dataPoints) || dataPoints.length === 0) {
-        return {
-            title: label,
-            total: 0,
-            average: 0,
-            wettest: null,
-            driest: null,
-        };
-    }
+  const values = dataPoints.map(d => d.y).filter(v => typeof v === "number" && !isNaN(v));
+  if (values.length === 0) return { title: label, total: 0, average: 0, wettest: null, driest: null, last10: null, prev10: null, trend: null };
 
-    // --- 2. Data Preparation and Aggregation ---
-    const values = dataPoints.map(point => point.y).filter(y => y !== null && y !== undefined);
-    
-    const total = values.reduce((sum, current) => sum + current, 0);
-    const count = values.length;
-    const average = count > 0 ? total / count : 0;
-    
-    // Find min/max data points (ensures we get the time/date as well)
-    let wettest = dataPoints[0];
-    let driest = dataPoints[0];
+  const total = values.reduce((a, b) => a + b, 0);
+  const average = total / values.length;
+  const wettest = Math.max(...values);
+  const driest = Math.min(...values);
 
-    for (const point of dataPoints) {
-        if (point.y > wettest.y) {
-            wettest = point;
-        }
-        if (point.y < driest.y) {
-            driest = point;
-        }
-    }
+  let last10 = null, prev10 = null, trend = null;
+  if (mode !== "daily" && values.length >= 20) {
+    const last10vals = values.slice(-10);
+    const prev10vals = values.slice(-20, -10);
+    last10 = last10vals.reduce((a, b) => a + b, 0) / 10;
+    prev10 = prev10vals.reduce((a, b) => a + b, 0) / 10;
+    trend = prev10 === 0 ? 0 : ((last10 - prev10) / prev10) * 100;
+  }
 
-    // --- 3. Return Final Statistics Object ---
-    return {
-        title: label,
-        dataPointsCount: count,
-        total: parseFloat(total.toFixed(2)),
-        average: parseFloat(average.toFixed(2)),
-        wettest: wettest,
-        driest: driest,
-    };
+  return { title: label, total, average, wettest, driest, last10, prev10, trend };
 }
 
+export function updateStatsPanel(stats) {
+  const panel = document.getElementById("statsPanel");
+  if (!panel) return;
 
-// ======================================================
-// PANEL UPDATE FUNCTION (REQUIRED FIX FOR THE ERROR)
-// ======================================================
+  if (!stats || stats.total === 0) {
+    panel.innerHTML = "<p>No data available.</p>";
+    return;
+  }
 
-/**
- * Updates the HTML elements on the dashboard with the calculated statistics.
- * **NOTE: THIS FUNCTION MUST BE EXPORTED to fix the Uncaught SyntaxError**
- * @param {object} stats - The statistics object returned by calculateStats.
- * @param {string} elementId - The base ID of the container element (e.g., 'stats-panel').
- */
-export function updateStatsPanel(stats, elementId) {
-    // A placeholder for the actual UI update logic
-    
-    // Example: Update the total rainfall display
-    const totalElement = document.getElementById(`${elementId}-total`);
-    if (totalElement) {
-        totalElement.textContent = `${stats.total} in.`;
-    }
-    
-    // Example: Log to console to verify data flow
-    console.log("Stats successfully calculated and ready for display:", stats);
+  const { title, total, average, wettest, driest, trend } = stats;
+  let trendHTML = "";
+  if (trend !== null) {
+    const arrow = trend > 0 ? "up" : "down";
+    const color = trend > 5 ? "#059669" : trend < -5 ? "#dc2626" : "#64748b";
+    trendHTML = `<div style="color:${color};font-weight:bold;">${Math.abs(trend).toFixed(1)}% ${arrow}</div><small>Last 10 vs previous 10</small>`;
+  }
+
+  panel.innerHTML = `
+    <h3 style="margin:0 0 12px;color:#0d47a1;font-weight:600;">${title}</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;">
+      <div style="background:white;padding:12px;border-radius:8px;text-align:center;border:1px solid #e2e8f0;">
+        <div style="font-size:1.8rem;font-weight:700;color:#0d47a1;">${total.toFixed(1)}</div><small>Total (in)</small>
+      </div>
+      <div style="background:white;padding:12px;border-radius:8px;text-align:center;border:1px solid #e2e8f0;">
+        <div style="font-size:1.8rem;font-weight:700;color:#0d47a1;">${average.toFixed(2)}</div><small>Avg per year</small>
+      </div>
+      <div style="background:white;padding:12px;border-radius:8px;text-align:center;border:1px solid #e2e8f0;">
+        <div style="font-size:1.8rem;font-weight:700;color:#059669;">${wettest.toFixed(2)}</div><small>Wettest</small>
+      </div>
+      <div style="background:white;padding:12px;border-radius:8px;text-align:center;border:1px solid #e2e8f0;">
+        <div style="font-size:1.8rem;font-weight:700;color:#dc2626;">${driest.toFixed(2)}</div><small>Driest</small>
+      </div>
+      ${trend !== null ? `<div style="background:white;padding:12px;border-radius:8px;text-align:center;border:1px solid #e2e8f0;">${trendHTML}</div>` : ""}
+    </div>
+  `;
 }
-
-// --- END OF FILE ---
