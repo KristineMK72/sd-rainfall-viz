@@ -32,7 +32,7 @@ const countyCentroids = {
   // Add more counties later!
 };
 
-const GEOJSON_URL = "https://raw.githubusercontent.com/zeke/us-counties/master/counties.geojson";  // Fixed: correct repo/path
+const GEOJSON_URL = "sd-counties.geojson";
 
 let currentMetric = "amount";
 const countyDataCache = {};
@@ -197,7 +197,7 @@ async function buildChoropleth() {
     await Promise.all(Object.keys(countyCentroids).map(loadCountyData));
 
     geoJsonLayer = L.geoJson(geojson, {
-      filter: f => f.properties.STATE === "46", // South Dakota FIPS
+      filter: () => true, // South Dakota FIPS
       style: styleCounty,
       onEachFeature: onEachCounty
     }).addTo(map);
