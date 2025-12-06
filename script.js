@@ -401,7 +401,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Load SD counties GeoJSON (assumes placed at /public/sd-counties.geojson)
   try {
-    const res = await fetch("sd-counties.geojson");
+    const res = await fetch("/sd-counties.geojson");
     if (!res.ok) throw new Error("County GeoJSON not found: " + res.status);
     const geojson = await res.json();
 
