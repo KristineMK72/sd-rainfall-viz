@@ -1,26 +1,178 @@
 import { calculateStats, updateStatsPanel } from "./stats.js";
 
-let currentMetric = "amount";
-const countyDataCache = {};
-const stationDataCache = {};
+/* ================================
+   Station + County Mapping
+================================ */
+export const COUNTY_TO_STATION = {
+  "Aurora": "mitchell",
+  "Beadle": "mitchell",
+  "Bennett": "rapid_city",
+  "Bon Homme": "yankton",
+  "Brookings": "brookings",
+  "Brown": "aberdeen",
+  "Brule": "mitchell",
+  "Buffalo": "pierre",
+  "Butte": "rapid_city",
+  "Campbell": "aberdeen",
+  "Charles Mix": "mitchell",
+  "Clark": "brookings",
+  "Clay": "sioux_falls",
+  "Codington": "brookings",
+  "Corson": "rapid_city",
+  "Custer": "rapid_city",
+  "Davison": "mitchell",
+  "Day": "aberdeen",
+  "Deuel": "brookings",
+  "Dewey": "pierre",
+  "Douglas": "mitchell",
+  "Edmunds": "aberdeen",
+  "Fall River": "rapid_city",
+  "Faulk": "aberdeen",
+  "Grant": "brookings",
+  "Gregory": "mitchell",
+  "Haakon": "pierre",
+  "Hamlin": "brookings",
+  "Hand": "pierre",
+  "Hanson": "mitchell",
+  "Harding": "rapid_city",
+  "Hughes": "pierre",
+  "Hutchinson": "mitchell",
+  "Hyde": "pierre",
+  "Jackson": "rapid_city",
+  "Jerauld": "mitchell",
+  "Jones": "pierre",
+  "Kingsbury": "brookings",
+  "Lake": "brookings",
+  "Lawrence": "rapid_city",
+  "Lincoln": "sioux_falls",
+  "Lyman": "pierre",
+  "Marshall": "aberdeen",
+  "McCook": "sioux_falls",
+  "McPherson": "aberdeen",
+  "Meade": "rapid_city",
+  "Mellette": "pierre",
+  "Miner": "brookings",
+  "Minnehaha": "sioux_falls",
+  "Moody": "brookings",
+  "Oglala Lakota": "rapid_city",
+  "Pennington": "rapid_city",
+  "Perkins": "rapid_city",
+  "Potter": "aberdeen",
+  "Roberts": "brookings",
+  "Sanborn": "mitchell",
+  "Shannon": "rapid_city",
+  "Spink": "aberdeen",
+  "Stanley": "pierre",
+  "Sully": "pierre",
+  "Todd": "rapid_city",
+  "Tripp": "mitchell",
+  "Turner": "sioux_falls",
+  "Union": "sioux_falls",
+  "Walworth": "aberdeen",
+  "Yankton": "yankton",
+  "Ziebach": "pierre"
+};
+
+export const STATION_COORDS = {
+  aberdeen:    { lat: 45.4647, lon: -98.4865 },
+  mitchell:    { lat: 43.7094, lon: -98.0298 },
+  pierre:      { lat: 44.3683, lon: -100.3509 },
+  rapid_city:  { lat: 44.0805, lon: -103.2310 },
+  sioux_falls: { lat: 43.5499, lon: -96.7003 },
+  brookings:   { lat: 44.3114, lon: -96.7984 },
+  yankton:     { lat: 42.8712, lon: -97.3973 }
+};
+
+// Build station → counties map from COUNTY_TO_STATION
+const STATION_TO_COUNTIES = {};
+for (const [county, station] of Object.entries(COUNTY_TO_STATION)) {
+  if (!STATION_TO_COUNTIES[station]) STATION_TO_COUNTIES[station] = [];
+  STATION_TO_COUNTIES[station].push(county);
+}
+
+// Human‑friendly labels for dropdown
+const STATION_LABELS = {
+  aberdeen: "Aberdeen",
+  mitchell: "Mitchell",
+  pierre: "Pierre",
+  rapid_city: "Rapid City",
+  sioux_falls: "Sioux Falls",
+  brookings: "Brookings",
+  yankton: "Yankton"
+};
+
+/* ================================
+   Metric Config (legend + colors)
+================================ */
+
+// Metric keys: "amount" (💧), "trend" (↗️), "variability" (〰️)
+
+const METRIC_CONFIG = {
+  amount: {
+    icon: "💧",
+    title: "Rainfall (10‑yr Avg)",
+    categories: [
+      { label: "Very Wet",   color: "#08306b" },
+      { label: "Above Avg",  color: "#2171b5" },
+      { label: "Moderate",   color: "#6baed6" },
+      { label: "Below Avg",  color: "#bdd7e7" },
+      { label: "Dry",        color: "#eff3ff" }
+    ],
+    // thresholds in inches (10‑yr average); can be tuned
+    thresholds: [25, 20, 15, 10]
+  },
+  trend: {
+    icon: "↗️",
+    title: "20‑yr Change in Rainfall",
+    categories: [
+      { label: "Strong Increase",   color: "#00441b" },
+      { label: "Moderate Increase", color: "#238b45" },
+      { label: "Stable",            color: "#74c476" },
+      { label: "Moderate Decrease", color: "#bae4b3" },
+      { label: "Strong Decrease",   color: "#edf8e9" }
+    ],
+    // thresholds in % change
+    thresholds: [20, 5, -5, -20]
+  },
+  variability: {
+    icon: "〰️",
+    title: "Year‑to‑Year Variability",
+    categories: [
+      { label: "Very High", color: "#4a1486" },
+      { label: "High",      color: "#6a51a3" },
+      { label: "Moderate",  color: "#9e9ac8" },
+      { label: "Low",       color: "#cbc9e2" },
+      { label: "Very Low",  color: "#f2f0f7" }
+    ],
+    // thresholds in inches (std dev)
+    thresholds: [4, 3, 2, 1]
+  }
+};
+
+/* ================================
+   Global State
+================================ */
 let map = null;
-let geoJsonLayer = null;
+let countiesGeoJSON = null;
+let currentStationKey = "aberdeen";
+let currentMetric = "amount"; // "amount" | "trend" | "variability"
 let chart = null;
 let lastFetch = 0;
-let stationMarkers = L.layerGroup();
+const stationDataCache = {}; // per-station metrics
+let stationLayer = null;     // merged polygon layer
 
-// ------------------------
-// Rate Limit Helper
-// ------------------------
+/* ================================
+   Rate Limit Helper
+================================ */
 async function delayIfNeeded() {
   const delay = Math.max(0, 1100 - (Date.now() - lastFetch));
   if (delay) await new Promise((r) => setTimeout(r, delay));
   lastFetch = Date.now();
 }
 
-// ------------------------
-// Fetch Daily Rainfall
-// ------------------------
+/* ================================
+   Fetch Daily Rainfall
+================================ */
 async function fetchDaily(lat, lon, start = "1940-01-01", end = "2025-12-05") {
   await delayIfNeeded();
 
@@ -47,9 +199,9 @@ async function fetchDaily(lat, lon, start = "1940-01-01", end = "2025-12-05") {
   }
 }
 
-// ------------------------
-// Aggregate to Yearly
-// ------------------------
+/* ================================
+   Aggregate to Yearly
+================================ */
 function aggregateYearly(daily) {
   const yearly = {};
 
@@ -63,19 +215,19 @@ function aggregateYearly(daily) {
     .sort((a, b) => a.year.localeCompare(b.year));
 }
 
-// ------------------------
-// Metrics
-// ------------------------
-function calcAmount(y) {
-  const last10 = y.slice(-10).map((d) => d.value);
+/* ================================
+   Metric Calculations
+================================ */
+function calcAmount(yearly) {
+  const last10 = yearly.slice(-10).map((d) => d.value);
   return last10.length ? last10.reduce((a, b) => a + b, 0) / 10 : null;
 }
 
-function calcTrend(y) {
-  if (y.length < 40) return null;
+function calcTrend(yearly) {
+  if (yearly.length < 40) return null;
 
-  const last20 = y.slice(-20).map((d) => d.value);
-  const prev20 = y.slice(-40, -20).map((d) => d.value);
+  const last20 = yearly.slice(-20).map((d) => d.value);
+  const prev20 = yearly.slice(-40, -20).map((d) => d.value);
 
   const a = last20.reduce((a, b) => a + b, 0) / 20;
   const b = prev20.reduce((a, b) => a + b, 0) / 20;
@@ -83,102 +235,68 @@ function calcTrend(y) {
   return b === 0 ? 0 : ((a - b) / b) * 100;
 }
 
-function calcVariability(y) {
-  const vals = y.map((d) => d.value);
+function calcVariability(yearly) {
+  const vals = yearly.map((d) => d.value);
   if (!vals.length) return null;
   const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return Math.sqrt(vals.reduce((s, x) => s + Math.pow(x - mean, 2), 0) / vals.length);
+  return Math.sqrt(
+    vals.reduce((s, x) => s + Math.pow(x - mean, 2), 0) / vals.length
+  );
 }
 
-// ------------------------
-// Color Scale
-// ------------------------
-function getColor(metric, v) {
-  if (v === null || v === undefined) return "#ccc";
+/* ================================
+   Metric → Color Utility
+================================ */
+function getColorForValue(metricKey, value) {
+  const config = METRIC_CONFIG[metricKey];
+  if (!config || value == null || isNaN(value)) {
+    return "#6baed6"; // fallback
+  }
 
-  if (metric === "amount")
-    return v > 25 ? "#08306b" :
-           v > 20 ? "#2171b5" :
-           v > 15 ? "#6baed6" :
-           v > 10 ? "#bdd7e7" :
-                    "#eff3ff";
+  const { thresholds, categories } = config;
+  // thresholds are high → low (for amount/variability) or pos→neg (trend)
+  // categories: [strong high, moderate high, mid, moderate low, strong low]
 
-  if (metric === "trend")
-    return v > 20 ? "#08306b" :
-           v > 10 ? "#2171b5" :
-           v > 0  ? "#6baed6" :
-           v > -10 ? "#fcae91" :
-           v > -20 ? "#fb6a4a" :
-                     "#cb181d";
-
-  return v > 6 ? "#4d004b" :
-         v > 5 ? "#810f7c" :
-         v > 4 ? "#8c6bb1" :
-         v > 3 ? "#9ebcda" :
-         v > 2 ? "#e7e1ef" :
-                 "#ffffcc";
+  if (value >= thresholds[0]) return categories[0].color;
+  if (value >= thresholds[1]) return categories[1].color;
+  if (value >= thresholds[2]) return categories[2].color;
+  if (value >= thresholds[3]) return categories[3].color;
+  return categories[4].color;
 }
 
-// ------------------------
-// Load County Data
-// ------------------------
-async function loadCountyData(countyName, lat, lon) {
-  const key = `county:${countyName}`;
-  if (countyDataCache[key]) return countyDataCache[key];
+/* ================================
+   Load Station Data
+================================ */
+async function loadStationData(stationKey) {
+  if (stationDataCache[stationKey]) return stationDataCache[stationKey];
 
-  const daily = await fetchDaily(lat, lon);
+  const coords = STATION_COORDS[stationKey];
+  if (!coords) {
+    console.error("No coordinates for station:", stationKey);
+    return null;
+  }
+
+  const daily = await fetchDaily(coords.lat, coords.lon);
   const yearly = aggregateYearly(daily);
 
+  const amount = calcAmount(yearly);
+  const trend = calcTrend(yearly);
+  const variability = calcVariability(yearly);
+
   const data = {
-    amount: calcAmount(yearly),
-    trend: calcTrend(yearly),
-    variability: calcVariability(yearly),
-    yearly,
+    amount,
+    trend,
+    variability,
+    yearly
   };
 
-  countyDataCache[key] = data;
+  stationDataCache[stationKey] = data;
   return data;
 }
 
-// ------------------------
-// Leaflet Style
-// ------------------------
-function styleCounty(feature) {
-  const name = feature.properties.NAME;
-  const key = `county:${name}`;
-  const data = countyDataCache[key];
-
-  return {
-    fillColor: getColor(currentMetric, data?.[currentMetric] ?? null),
-    weight: 2,
-    color: "white",
-    fillOpacity: 0.8,
-  };
-}
-
-// ------------------------
-// County Interaction
-// ------------------------
-function onEachCounty(feature, layer) {
-  const name = feature.properties.NAME;
-  const centroid = layer.getBounds().getCenter();
-
-  layer.bindTooltip(name, { sticky: true });
-
-  layer.on({
-    mouseover: (e) => e.target.setStyle({ weight: 5, color: "#000" }),
-    mouseout: () => geoJsonLayer.resetStyle(layer),
-    click: async () => {
-      map.fitBounds(layer.getBounds());
-      await loadCountyData(name, centroid.lat, centroid.lng);
-      updateChart(name + " County");
-    },
-  });
-}
-
-// ------------------------
-// Load SD Counties (ArcGIS)
-// ------------------------
+/* ================================
+   Load SD Counties (ArcGIS)
+================================ */
 async function loadSDCounties() {
   const url =
     "https://arcgis.sd.gov/arcgis/rest/services/SD_All/Boundary_County/FeatureServer/0/query" +
@@ -194,16 +312,89 @@ async function loadSDCounties() {
   }
 }
 
-// ------------------------
-// Chart Updater (PATCHED)
-// ------------------------
-function updateChart(title) {
-  const key = `county:${title.replace(" County", "")}`;
-  const data = countyDataCache[key];
+/* ================================
+   Build Merged Polygon for Station
+================================ */
+function buildStationPolygon(stationKey) {
+  if (!countiesGeoJSON) return null;
 
-  // ✅ Prevent crashes when Open-Meteo rate-limits (429)
+  const countiesForStation = STATION_TO_COUNTIES[stationKey] || [];
+  const features = countiesGeoJSON.features.filter((f) =>
+    countiesForStation.includes(f.properties.NAME)
+  );
+
+  if (!features.length) return null;
+
+  return {
+    type: "FeatureCollection",
+    features
+  };
+}
+
+/* ================================
+   Map Initialization
+================================ */
+async function initMap() {
+  map = L.map("map").setView([44.5, -100], 7);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+
+  countiesGeoJSON = await loadSDCounties();
+  if (!countiesGeoJSON) return;
+
+  // Initial station polygon
+  updateStationPolygonAndView(currentStationKey);
+}
+
+/* ================================
+   Update Polygon + View + Color
+================================ */
+async function updateStationPolygonAndView(stationKey) {
+  if (!countiesGeoJSON || !map) return;
+
+  const stationFC = buildStationPolygon(stationKey);
+  if (!stationFC) {
+    console.warn("No counties found for station:", stationKey);
+    return;
+  }
+
+  // Ensure data for color is loaded
+  const data = await loadStationData(stationKey);
+  const metricValue = data ? data[currentMetric] : null;
+  const fillColor = getColorForValue(currentMetric, metricValue);
+
+  if (stationLayer) {
+    map.removeLayer(stationLayer);
+  }
+
+  stationLayer = L.geoJSON(stationFC, {
+    style: {
+      color: "#ffffff",
+      weight: 2,
+      fillOpacity: 0.7,
+      fillColor
+    }
+  }).addTo(map);
+
+  map.fitBounds(stationLayer.getBounds());
+}
+
+/* ================================
+   Chart + Stats Updater
+================================ */
+function updateChartAndStats(stationKey) {
+  const data = stationDataCache[stationKey];
+  const label = STATION_LABELS[stationKey] || stationKey;
+
   if (!data || !data.yearly || data.yearly.length === 0) {
     updateStatsPanel({ total: 0 });
+    if (chart) {
+      chart.destroy();
+      chart = null;
+    }
     return;
   }
 
@@ -212,7 +403,7 @@ function updateChart(title) {
     y: d.value,
   }));
 
-  const stats = calculateStats(yearly, "yearly", title);
+  const stats = calculateStats(yearly, "yearly", `${label} station`);
   updateStatsPanel(stats);
 
   if (chart) chart.destroy();
@@ -228,7 +419,7 @@ function updateChart(title) {
     data: {
       datasets: [
         {
-          label: title,
+          label: `${label} station`,
           data: yearly,
           borderColor: "#0d47a1",
           backgroundColor: "rgba(13,71,161,0.2)",
@@ -245,35 +436,122 @@ function updateChart(title) {
   });
 }
 
-// ------------------------
-// Map Initialization
-// ------------------------
-async function initMap() {
-  map = L.map("map").setView([44.5, -100], 7);
+/* ================================
+   Legend Updater
+================================ */
+function updateLegend() {
+  const legendEl = document.getElementById("legend");
+  if (!legendEl) return;
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(map);
+  const config = METRIC_CONFIG[currentMetric];
+  if (!config) return;
 
-  const geojson = await loadSDCounties();
-  if (!geojson) return;
+  const titleEl = legendEl.querySelector("h4");
+  const rowsContainer = legendEl.querySelector(".legend-rows");
 
-  geoJsonLayer = L.geoJSON(geojson, {
-    style: styleCounty,
-    onEachFeature: onEachCounty,
-  }).addTo(map);
+  if (titleEl) {
+    titleEl.textContent = `${config.icon} ${config.title}`;
+  }
+
+  if (!rowsContainer) return;
+
+  rowsContainer.innerHTML = "";
+
+  config.categories.forEach((cat) => {
+    const row = document.createElement("div");
+    const swatch = document.createElement("span");
+    swatch.style.background = cat.color;
+    row.appendChild(swatch);
+    row.appendChild(document.createTextNode(cat.label));
+    rowsContainer.appendChild(row);
+  });
 }
 
-// ------------------------
-// Metric Switch
-// ------------------------
-document.querySelectorAll(".metric-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    currentMetric = btn.dataset.metric;
-    geoJsonLayer.setStyle(styleCounty);
-  });
-});
+/* ================================
+   Metric Toggle (Icon Buttons)
+================================ */
+function initMetricToggle() {
+  const amountBtn = document.getElementById("metricAmount");
+  const trendBtn = document.getElementById("metricTrend");
+  const variabilityBtn = document.getElementById("metricVariability");
 
-// ------------------------
-initMap();
+  if (!amountBtn || !trendBtn || !variabilityBtn) {
+    console.warn("Metric toggle buttons not found");
+    return;
+  }
+
+  function setActiveMetric(metric) {
+    currentMetric = metric;
+
+    // Update active state
+    amountBtn.classList.toggle("active", metric === "amount");
+    trendBtn.classList.toggle("active", metric === "trend");
+    variabilityBtn.classList.toggle("active", metric === "variability");
+
+    // Update legend
+    updateLegend();
+
+    // Recolor current polygon
+    updateStationPolygonAndView(currentStationKey);
+  }
+
+  amountBtn.addEventListener("click", () => setActiveMetric("amount"));
+  trendBtn.addEventListener("click", () => setActiveMetric("trend"));
+  variabilityBtn.addEventListener("click", () => setActiveMetric("variability"));
+
+  // Initial state
+  setActiveMetric(currentMetric);
+}
+
+/* ================================
+   Dropdown Initialization
+================================ */
+function initDropdown() {
+  const select = document.getElementById("locationSelect");
+  if (!select) {
+    console.error("locationSelect element not found");
+    return;
+  }
+
+  select.innerHTML = "";
+
+  const stationKeys = Object.keys(STATION_LABELS);
+  stationKeys.forEach((key) => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = STATION_LABELS[key];
+    select.appendChild(opt);
+  });
+
+  select.value = currentStationKey;
+
+  select.addEventListener("change", async () => {
+    currentStationKey = select.value;
+
+    const data = await loadStationData(currentStationKey);
+    if (data) {
+      updateChartAndStats(currentStationKey);
+      updateStationPolygonAndView(currentStationKey);
+    }
+  });
+}
+
+/* ================================
+   Main Init
+================================ */
+async function initApp() {
+  initMetricToggle();
+  initDropdown();
+  await initMap();
+
+  const data = await loadStationData(currentStationKey);
+  if (data) {
+    updateChartAndStats(currentStationKey);
+    updateStationPolygonAndView(currentStationKey);
+  }
+
+  // Legend initial render
+  updateLegend();
+}
+
+initApp();
