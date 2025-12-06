@@ -1,23 +1,241 @@
-/* South Dakota Rainfall Explorer – Full Working Styles */
-* { box-sizing: border-box; margin:0; padding:0; }
-body { font-family: system-ui, sans-serif; background:#f8fafc; }
-#map { height: 650px !important; width: 100%; border-radius: 12px; border: 3px solid #94a3b8; background:#e2e8f0; }
-.page-header { background: #0d47a1; color:white; padding:2rem; text-align:center; }
-.subtitle { opacity:0.9; font-size:1.1rem; }
-.container { max-width:1400px; margin:2rem auto; padding:0 1rem; }
-.layout { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
-.left-panel, .right-panel { background:white; padding:1.5rem; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
-.metric-toggle { display:flex; background:#e2e8f0; border-radius:50px; overflow:hidden; margin-bottom:1rem; position:relative; }
-.metric-bg { position:absolute; width:33.33%; height:100%; background:#0d47a1; border-radius:50px; transition:transform .3s; }
-.metric-option { flex:1; padding:0.8rem; background:transparent; border:none; cursor:pointer; font-weight:600; }
-.metric-option.active { color:white; }
-.controls { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
-select, button { padding:0.75rem; border-radius:8px; border:2px solid #cbd5e1; }
-#resetZoom { background:#dc2626; color:white; cursor:pointer; }
-.chart-container { height:400px; border:2px solid #cbd5e1; border-radius:12px; overflow:hidden; }
-.stats-panel { background:#f8fafc; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; }
-.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1rem; margin-top:1rem; }
-.stat-card { background:white; padding:1rem; border-radius:8px; text-align:center; border:1px solid #e2e8f0; }
-.big { font-size:2rem; font-weight:700; color:#0d47a1; }
-.footer { text-align:center; padding:2rem; color:#64748b; font-size:0.9rem; }
-@media (max-width:960px) { .layout { grid-template-columns:1fr; } #map{height:500px;} }
+/* ----------------------------------------------------
+   Global Reset + Base
+---------------------------------------------------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+/* ----------------------------------------------------
+   Page Header
+---------------------------------------------------- */
+.page-header {
+  background: #0d47a1;
+  color: white;
+  padding: 2rem;
+  text-align: center;
+  border-bottom: 4px solid #0a3578;
+}
+
+.subtitle {
+  opacity: 0.9;
+  font-size: 1.1rem;
+}
+
+/* ----------------------------------------------------
+   Layout
+---------------------------------------------------- */
+.container {
+  max-width: 1400px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.left-panel,
+.right-panel {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* ----------------------------------------------------
+   Map
+---------------------------------------------------- */
+#map {
+  height: 650px !important;
+  width: 100%;
+  border-radius: 12px;
+  border: 3px solid #94a3b8;
+  background: #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ----------------------------------------------------
+   Metric Toggle (Amount / Trend / Variability)
+---------------------------------------------------- */
+.metric-toggle {
+  display: flex;
+  background: #e2e8f0;
+  border-radius: 50px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.metric-bg {
+  position: absolute;
+  width: 33.33%;
+  height: 100%;
+  background: #0d47a1;
+  border-radius: 50px;
+  transition: transform .3s;
+}
+
+.metric-option {
+  flex: 1;
+  padding: 0.8rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1e293b;
+  z-index: 2;
+}
+
+.metric-option.active {
+  color: white;
+}
+
+/* ----------------------------------------------------
+   Controls (Dropdowns + Buttons)
+---------------------------------------------------- */
+.controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+select,
+button {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 2px solid #cbd5e1;
+  background: white;
+  font-size: 1rem;
+}
+
+#resetZoom {
+  background: #dc2626;
+  color: white;
+  cursor: pointer;
+}
+
+/* ----------------------------------------------------
+   Chart Container
+---------------------------------------------------- */
+.chart-container {
+  height: 400px;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+/* ----------------------------------------------------
+   Stats Panel
+---------------------------------------------------- */
+.stats-panel {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.big {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0d47a1;
+}
+
+/* ----------------------------------------------------
+   Dynamic Legend (updates with metric)
+---------------------------------------------------- */
+.legend {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+  line-height: 18px;
+  z-index: 999;
+  min-width: 160px;
+}
+
+.legend h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0d47a1;
+}
+
+.legend div {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  color: #334155;
+}
+
+.legend div:last-child {
+  margin-bottom: 0;
+}
+
+.legend span {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+}
+
+/* ----------------------------------------------------
+   Footer
+---------------------------------------------------- */
+.footer {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* ----------------------------------------------------
+   Mobile
+---------------------------------------------------- */
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  #map {
+    height: 500px;
+  }
+  .legend {
+    bottom: 12px;
+    left: 12px;
+    padding: 10px 12px;
+  }
+}
