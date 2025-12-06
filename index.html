@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>South Dakota Rainfall Explorer</title>
 
-  <!-- Leaflet from jsDelivr – eliminates tracking warnings -->
+  <!-- Leaflet from jsDelivr -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 
-  <!-- Your CSS – absolute path so Vite serves it correctly -->
+  <!-- Your CSS -->
   <link rel="stylesheet" href="/style.css" />
 </head>
 
@@ -20,40 +20,73 @@
 
   <main class="container">
     <section class="layout">
+      <!-- LEFT: Map + Metric toggle -->
       <div class="left-panel">
+        <!-- Icon-based metric toggle -->
         <div class="metric-toggle" role="tablist" aria-label="Map metric">
           <div class="metric-bg"></div>
-          <button class="metric-option active" data-metric="amount"      role="tab" aria-selected="true">Amount</button>
-          <button class="metric-option"        data-metric="trend"       role="tab" aria-selected="false">Trend</button>
-          <button class="metric-option"        data-metric="variability" role="tab" aria-selected="false">Variability</button>
+          <button
+            id="metricAmount"
+            class="metric-option active"
+            data-metric="amount"
+            role="tab"
+            aria-selected="true"
+          >
+            💧 Amount
+          </button>
+          <button
+            id="metricTrend"
+            class="metric-option"
+            data-metric="trend"
+            role="tab"
+            aria-selected="false"
+          >
+            ↗️ Trend
+          </button>
+          <button
+            id="metricVariability"
+            class="metric-option"
+            data-metric="variability"
+            role="tab"
+            aria-selected="false"
+          >
+            〰️ Variability
+          </button>
         </div>
 
-        <div id="map" aria-label="South Dakota rainfall choropleth map"></div>
+        <!-- Map + Legend -->
+        <div id="map" aria-label="South Dakota rainfall choropleth map">
+          <div id="legend" class="legend">
+            <h4>Rainfall (10‑yr Avg)</h4>
+            <div class="legend-rows"></div>
+          </div>
+        </div>
 
         <p class="map-note">
-          Click a county to explore its rainfall history. Use the toggle above to change what the colors mean.
+          Use the dropdown on the right to choose a station. Use the metric toggle above to change what the colors mean.
         </p>
       </div>
 
+      <!-- RIGHT: Controls + Chart + Stats -->
       <div class="right-panel">
         <div class="controls">
           <label class="control-group">
             <span class="control-label">Location</span>
-            <select id="citySelect"></select>
+            <select id="locationSelect"></select>
           </label>
+
           <label class="control-group">
             <span class="control-label">Time scale</span>
-            <select id="timeScale">
-              <option value="yearly">Yearly</option>
-              <option value="monthly">Monthly</option>
-              <option value="daily">Daily (recent)</option>
+            <select id="timeScaleSelect">
+              <option value="yearly" selected>Yearly</option>
             </select>
           </label>
+
           <button id="resetZoom">Reset chart zoom</button>
         </div>
 
         <div class="chart-container">
-          <canvas id="rainfallChart"></canvas>
+          <canvas id="chart"></canvas>
         </div>
 
         <section id="statsPanel" class="stats-panel" aria-live="polite">
@@ -74,9 +107,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
-   <!-- Your app code – these must be relative, not absolute -->
+  <!-- Your app code -->
   <script type="module" src="stats.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>
-
