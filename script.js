@@ -270,6 +270,66 @@ async function initMap() {
 
   countiesGeoJSON = await loadSDCounties();
   updatePolygon();
+  // Add station markers with labels + rich popups
+Object.entries(STATION_COORDS).forEach(([key, { lat, lon }]) => {
+  const data = stationDataCache[key]; // already loaded after initApp()
+
+  // Compute last year's rainfall
+  const lastYear = data.yearly.length
+    ? data.yearly[data.yearly.length - 1].value.toFixed(2)
+    : "—";
+
+  // Build popup HTML
+  const popupHTML = `
+    <div style="font-size:14px; line-height:1.4;">
+      <strong style="font-size:16px;">${STATION_LABELS[key]}</strong><br><br>
+
+      <strong>10‑yr Avg:</strong> ${data.amount?.toFixed(2) ?? "—"} in<br>
+      <strong>Trend (20‑yr):</strong> ${data.trend ? data.trend.toFixed(1) + "%" : "—"}<br>
+      <strong>Variability:</strong> ${data.variability?.toFixed(2) ?? "—"}<br>
+      <strong>Last Year:</strong> ${lastYear} in<br><br>
+
+      <canvas id="spark-${key}" width="180" height="40"></canvas><br>
+
+      <button 
+        data-station="${key}" 
+        class="popup-select-btn" 
+        style="
+          margin-top:6px;
+          padding:6px 10px;
+          background:#0d47a1;
+          color:white;
+          border:none;
+          border-radius:4px;
+          cursor:pointer;
+        "
+      >
+        Select station
+      </button>
+    </div>
+  `;
+
+  const marker = L.marker([lat, lon])
+    .addTo(map)
+    .bindTooltip(STATION_LABELS[key], { permanent: true, direction: "top" })
+    .bindPopup(popupHTML);
+
+  // When popup opens, draw sparkline + attach button handler
+  marker.on("popupopen", () => {
+    drawSparkline(`spark-${key}`, data.yearly);
+
+    const btn = document.querySelector(`button[data-station="${key}"]`);
+    if (btn) {
+      btn.onclick = () => {
+        currentStationKey = key;
+        document.getElementById("stationSelect").value = key;
+        updateChartAndStats(key);
+        updatePolygon();
+        map.closePopup();
+      };
+    }
+  });
+}); 
 }
 
 async function loadSDCounties() {
@@ -466,4 +526,30 @@ async function initApp() {
   updatePolygon();
 }
 
+function drawSparkline(canvasId, yearly) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: yearly.map(d => d.year),
+      datasets: [{
+        data: yearly.map(d => d.value),
+        borderColor: "#0d47a1",
+        borderWidth: 1,
+        pointRadius: 0,
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { display: false }
+      }
+    }
+  });
+}
 initApp();
