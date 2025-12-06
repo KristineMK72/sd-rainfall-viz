@@ -195,12 +195,17 @@ async function loadSDCounties() {
 }
 
 // ------------------------
-// Chart Updater
+// Chart Updater (PATCHED)
 // ------------------------
 function updateChart(title) {
   const key = `county:${title.replace(" County", "")}`;
   const data = countyDataCache[key];
-  if (!data) return;
+
+  // ✅ Prevent crashes when Open-Meteo rate-limits (429)
+  if (!data || !data.yearly || data.yearly.length === 0) {
+    updateStatsPanel({ total: 0 });
+    return;
+  }
 
   const yearly = data.yearly.map((d) => ({
     x: d.year,
@@ -212,7 +217,13 @@ function updateChart(title) {
 
   if (chart) chart.destroy();
 
-  chart = new Chart(document.getElementById("chart"), {
+  const canvas = document.getElementById("chart");
+  if (!canvas) {
+    console.error("Chart canvas not found");
+    return;
+  }
+
+  chart = new Chart(canvas, {
     type: "line",
     data: {
       datasets: [
