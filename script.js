@@ -83,12 +83,6 @@ export const STATION_COORDS = {
   yankton:     { lat: 42.8712, lon: -97.3973 }
 };
 
-const STATION_TO_COUNTIES = {};
-for (const [county, station] of Object.entries(COUNTY_TO_STATION)) {
-  if (!STATION_TO_COUNTIES[station]) STATION_TO_COUNTIES[station] = [];
-  STATION_TO_COUNTIES[station].push(county);
-}
-
 const STATION_LABELS = {
   aberdeen: "Aberdeen",
   mitchell: "Mitchell",
@@ -99,8 +93,14 @@ const STATION_LABELS = {
   yankton: "Yankton"
 };
 
+const STATION_TO_COUNTIES = {};
+for (const [county, station] of Object.entries(COUNTY_TO_STATION)) {
+  if (!STATION_TO_COUNTIES[station]) STATION_TO_COUNTIES[station] = [];
+  STATION_TO_COUNTIES[station].push(county);
+}
+
 /* ============================================================
-   2. Dramatic Metric Color Scales
+   2. Metric Config
 ============================================================ */
 
 const METRIC_CONFIG = {
@@ -111,7 +111,6 @@ const METRIC_CONFIG = {
     colors: ["#08306b", "#2171b5", "#6baed6", "#bdd7e7", "#eff3ff"],
     labels: ["Very Wet", "Above Avg", "Moderate", "Below Avg", "Dry"]
   },
-
   trend: {
     icon: "↗️",
     title: "20‑yr Change",
@@ -119,7 +118,6 @@ const METRIC_CONFIG = {
     colors: ["#00441b", "#238b45", "#74c476", "#bae4b3", "#edf8e9"],
     labels: ["Strong Increase", "Moderate Increase", "Stable", "Moderate Decrease", "Strong Decrease"]
   },
-
   variability: {
     icon: "〰️",
     title: "Year‑to‑Year Variability",
@@ -143,7 +141,7 @@ let currentMetric = "amount";
 let chart = null;
 let lastFetch = 0;
 
-const stationDataCache = {}; // { stationKey: { amount, trend, variability, yearly } }
+const stationDataCache = {};
 
 /* ============================================================
    4. Rate Limit Helper
@@ -244,7 +242,7 @@ async function loadStationData(stationKey) {
 
 function getColor(metricKey, value) {
   const cfg = METRIC_CONFIG[metricKey];
-  if (value == null) return cfg.colors[2]; // fallback to middle
+  if (value == null) return cfg.colors[2];
 
   const t = cfg.thresholds;
   const c = cfg.colors;
@@ -270,66 +268,6 @@ async function initMap() {
 
   countiesGeoJSON = await loadSDCounties();
   updatePolygon();
-  // Add station markers with labels + rich popups
-Object.entries(STATION_COORDS).forEach(([key, { lat, lon }]) => {
-  const data = stationDataCache[key]; // already loaded after initApp()
-
-  // Compute last year's rainfall
-  const lastYear = data.yearly.length
-    ? data.yearly[data.yearly.length - 1].value.toFixed(2)
-    : "—";
-
-  // Build popup HTML
-  const popupHTML = `
-    <div style="font-size:14px; line-height:1.4;">
-      <strong style="font-size:16px;">${STATION_LABELS[key]}</strong><br><br>
-
-      <strong>10‑yr Avg:</strong> ${data.amount?.toFixed(2) ?? "—"} in<br>
-      <strong>Trend (20‑yr):</strong> ${data.trend ? data.trend.toFixed(1) + "%" : "—"}<br>
-      <strong>Variability:</strong> ${data.variability?.toFixed(2) ?? "—"}<br>
-      <strong>Last Year:</strong> ${lastYear} in<br><br>
-
-      <canvas id="spark-${key}" width="180" height="40"></canvas><br>
-
-      <button 
-        data-station="${key}" 
-        class="popup-select-btn" 
-        style="
-          margin-top:6px;
-          padding:6px 10px;
-          background:#0d47a1;
-          color:white;
-          border:none;
-          border-radius:4px;
-          cursor:pointer;
-        "
-      >
-        Select station
-      </button>
-    </div>
-  `;
-
-  const marker = L.marker([lat, lon])
-    .addTo(map)
-    .bindTooltip(STATION_LABELS[key], { permanent: true, direction: "top" })
-    .bindPopup(popupHTML);
-
-  // When popup opens, draw sparkline + attach button handler
-  marker.on("popupopen", () => {
-    drawSparkline(`spark-${key}`, data.yearly);
-
-    const btn = document.querySelector(`button[data-station="${key}"]`);
-    if (btn) {
-      btn.onclick = () => {
-        currentStationKey = key;
-        document.getElementById("stationSelect").value = key;
-        updateChartAndStats(key);
-        updatePolygon();
-        map.closePopup();
-      };
-    }
-  });
-}); 
 }
 
 async function loadSDCounties() {
@@ -510,13 +448,49 @@ function initResetZoom() {
 }
 
 /* ============================================================
-   13. App Init
+   13. Add Station Markers (simple version)
+============================================================ */
+
+function addStationMarkers() {
+  Object.entries(STATION_COORDS).forEach(([key, { lat, lon }]) => {
+    const marker = L.marker([lat, lon])
+      .addTo(map)
+      .bindTooltip(STATION_LABELS[key], { permanent: true, direction: "top" });
+
+    marker.on("click", () => {
+      currentStationKey = key;
+      document.getElementById("stationSelect").value = key;
+      updateChartAndStats(key);
+      updatePolygon();
+    });
+  });
+}
+
+/* ============================================================
+   14. Optional: Show Whole Map
+============================================================ */
+
+function initShowFullMap() {
+  const btn = document.getElementById("showFullMap");
+  if (!btn) return;
+
+  btn.onclick = () => {
+    if (countiesGeoJSON && map) {
+      const layer = L.geoJSON(countiesGeoJSON);
+      map.fitBounds(layer.getBounds());
+    }
+  };
+}
+
+/* ============================================================
+   15. App Init
 ============================================================ */
 
 async function initApp() {
   initMetricToggle();
   initStationDropdown();
   initResetZoom();
+  initShowFullMap();
 
   await initMap();
 
@@ -524,32 +498,8 @@ async function initApp() {
   updateChartAndStats(currentStationKey);
   updateLegend();
   updatePolygon();
+
+  addStationMarkers();
 }
 
-function drawSparkline(canvasId, yearly) {
-  const ctx = document.getElementById(canvasId);
-  if (!ctx) return;
-
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: yearly.map(d => d.year),
-      datasets: [{
-        data: yearly.map(d => d.value),
-        borderColor: "#0d47a1",
-        borderWidth: 1,
-        pointRadius: 0,
-        tension: 0.2
-      }]
-    },
-    options: {
-      responsive: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { display: false },
-        y: { display: false }
-      }
-    }
-  });
-}
 initApp();
